@@ -1,0 +1,44 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+.vercel/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+work/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Local databases and runtime data
+*.sqlite
+*.sqlite3
+*.db
+tmp/
+temp/
+uploads/
+backups/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.tsbuildinfo
+
+# Logs
+*.log
+pnpm-debug.log*
+npm-debug.log*
+
+# Supabase local state
+supabase/.temp/
