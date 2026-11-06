@@ -1,0 +1,39 @@
+const messages: Record<string, string> = {
+  candidate_created: "候选岗位已加入候选池。",
+  create_failed: "创建失败，请检查必填字段或重复记录。",
+  promoted: "已按你的选择进入正式长期表；系统没有执行投递。",
+  promote_failed: "无法进入正式表，请刷新后重试。",
+  action_created: "行动已创建并追加到时间线。",
+  action_failed: "行动创建失败，请检查时间和上下文。",
+  dependency_saved: "行动依赖已保存。",
+  dependency_failed: "依赖保存失败；系统会拒绝循环依赖。",
+  view_saved: "当前筛选已保存。",
+  view_failed: "保存视图失败，名称可能已存在。",
+  field_created: "自定义字段已创建。",
+  field_failed: "自定义字段创建失败。",
+  value_saved: "自定义字段已保存并锁定。",
+  value_failed: "自定义字段保存失败。",
+  conflict_resolved: "冲突已按你的选择处理并追加历史。",
+  conflict_changed: "云端字段再次变化，请刷新后重新选择。",
+  created: "记录已创建。",
+  jd_imported: "JD 已识别并写入实习长期表；系统没有执行投递。",
+  jd_duplicate: "这份 JD 已经存在，已打开原有实习记录。",
+  jd_import_failed: "JD 入库失败，请检查内容后重试。",
+  jd_import_incomplete: "至少需要可确认的公司和岗位名称。",
+  privacy_locked: "隐私锁已开启，当前不能写入实习表。",
+  resume_assigned: "已保存本岗位对应的简历版本；历史版本仍保留。",
+  resume_assign_failed: "简历版本绑定失败，请检查隐私锁后重试。",
+  master_resume_required: "请先到材料库上传通用 Master 简历。",
+  ai_not_configured: "AI 面板已就绪；服务器还需要配置 OpenAI Key、模型和计费参数。",
+  ai_permission_required: "请先在状态中心开启 AI 总开关、AI 分析、JD 分析和材料草稿权限。",
+  ai_budget_exceeded: "本月 HK$100 AI 硬上限已阻止这次调用。",
+  ai_failed: "AI 分析未完成，JD 和简历记录均未被修改。",
+  ai_completed: "AI 分析已完成并按当前 JD 与简历版本归档。",
+  ai_cached: "相同 JD 与简历版本已有分析，已直接复用缓存。",
+  preview: "隔离预览模式不会写入业务数据。"
+};
+
+export function WorkspaceNotice({ notice }: { notice?: string }) {
+  if (!notice || !messages[notice]) return null;
+  return <p className="workspace-notice">{messages[notice]}</p>;
+}
