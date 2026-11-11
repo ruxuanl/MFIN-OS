@@ -67,6 +67,26 @@ Supabase 控制台 → Authentication → Hooks → Before User Created，选择
 3. 用另一个 Google 账号尝试登录，应被拒绝且 Supabase Authentication → Users 中没有新增用户。
 4. 在 issue #7 中勾选验收项，并记录迁移是否一次通过。
 
+## 6.1 灌入合成数据（#8）
+
+先在本地应用里登录一次（数据库里要有这个唯一用户），然后在仓库根目录运行：
+
+```bash
+pnpm test-env:seed
+```
+
+脚本会生成两份已被 git 忽略的文件：
+
+- `work/test-env/seed.sql`：约 200 个岗位（实习与秋招各半，含 JD 原文）、80 个候选、300 条 Gmail 最小投影和 150 个日历事件。全部是虚构公司和示例文本，不含真实邮箱或电话。
+- `work/test-env/unseed.sql`：只删除种子创建的数据（按固定 ID），以及种子新建的占位日历连接。
+
+在 SQL Editor 执行 `seed.sql` 即可；重复执行不会产生重复数据。不再需要时执行 `unseed.sql`。
+
+说明：
+
+- 种子数据不包含简历文件。简历版本必须对应私有存储里的真实文件，请在“材料”页上传一份虚构简历。
+- 日历事件挂在一个只读的“合成示例日历（seed）”下；如果还没有 Calendar 连接，会创建一个状态为“已断开”的占位连接，`unseed.sql` 会删除它。
+
 ## 7. 已知限制
 
 - 定时任务（Gmail、Calendar 增量同步、岗位来源）会调用已部署站点的 HTTPS 地址，本地 `localhost` 收不到。Test 环境中这些定时任务保持未配置，使用界面上的手动同步。

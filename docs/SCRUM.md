@@ -88,7 +88,7 @@ mock 模式使用虚构身份，所有数据为空，只能检查界面，不能
 2. 运行 `pnpm test-env:bootstrap`（设置 `MFIN_ALLOWED_EMAIL` 后会一并生成白名单语句），把生成的 `work/test-env/bootstrap.sql` 在 SQL Editor 执行。
 3. 启用 Before User Created Hook 与 Google 登录，配置 OAuth 回调。
 4. 按 `.env.example` 填写 `apps/web/.env.local`，不要设置 `AUTH_MODE=mock`。
-5. 灌入合成数据（#8），不要导入真实邮件、简历或 JD。
+5. 运行 `pnpm test-env:seed`，把生成的 `work/test-env/seed.sql` 在 SQL Editor 执行（`unseed.sql` 可完整清除）。不要导入真实邮件、简历或 JD。
 
 ### 7.4 启动
 
@@ -105,6 +105,7 @@ mock 模式使用虚构身份，所有数据为空，只能检查界面，不能
 
 - 全量检查：见上表。内容包括格式、治理、ESLint、TypeScript、静态检查、全部测试和生产构建。
 - 只跑测试：`pnpm test`（Windows：`corepack pnpm test`）。
+- 数据库集成测试（可选）：准备一个可随意删除的本地 PostgreSQL 16，设置 `PGHOST`、`PGPORT`、`PGUSER` 和 `MFIN_TEST_PG=1` 后运行 `pnpm test:db`。它会新建 `mfin_integration` 库，套用 `tests/db/supabase-stub.sql`（Supabase 托管对象的最小替身）和全部迁移，再以真实用户身份验证种子与 RPC。未设置 `MFIN_TEST_PG` 时自动跳过。涉及迁移或 RPC 的 PR 建议在描述中附上结果。
 
 ## 8. Sprint 节奏
 
