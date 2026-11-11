@@ -74,3 +74,29 @@ test("application package: create once, checklist, status rules, privacy lock", 
     select public.set_my_application_package_status((select package_id from p), 'ready')`);
   assert.throws(locked, /privacy_locked/, "privacy lock blocks package writes");
 });
+
+test("submission record: snapshot, immutability, undo and re-record", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const jd = `'示例资本','Summer Analyst',null,'香港',current_date + 5,null,'https://careers.sample.example/2','${"合成 JD 正文 ".repeat(5)}','研究支持','熟悉 Excel',null,'jd_rules_v2',0.8,array[]::text[],'${"f".repeat(64)}','preparation',null`;
+  const setup = `create temp table t as select opportunity_id from public.import_my_jd('internship', ${jd});
+    create temp table p as select * from public.create_my_application_package((select opportunity_id from t), '[{"key":"cv","label":"简历","required":true,"source":"default"}]'::jsonb, null, 'r', null, null, 'package_rules_v1');
+    create temp table s as select public.record_my_application_submitted((select opportunity_id from t), current_date, 'REF-1', null) as id`;
+  const after = asUser(`${setup};
+    select (select main_stage from public.opportunities), (select status from public.application_packages),
+      (select status from public.actions), (select application_reference from public.application_snapshots)`);
+  assert.equal(after.split("\n").pop(), "submitted|submitted_recorded|completed|REF-1");
+
+  assert.throws(() => asUser(`${setup}; select public.record_my_application_submitted((select opportunity_id from t), null, null, null)`),
+    /submission_already_recorded/);
+  assert.throws(() => asUser(`${setup}; reset role; update public.application_snapshots set application_reference = 'x'`),
+    /application_snapshot_is_immutable/);
+
+  const undone = asUser(`${setup}; select public.undo_my_application_submitted((select id from s));
+    select (select main_stage from public.opportunities), (select status from public.application_packages),
+      (select status from public.actions), (select status from public.application_snapshots),
+      (select public.record_my_application_submitted((select opportunity_id from t), null, null, null) is not null)`);
+  assert.equal(undone.split("\n").pop(), "preparation|draft|unscheduled|undone|t");
+
+  assert.throws(() => asUser(`${setup}; update public.opportunities set substage = 'x', version = version + 1;
+    select public.undo_my_application_submitted((select id from s))`), /opportunity_changed_since_submission/);
+});
+

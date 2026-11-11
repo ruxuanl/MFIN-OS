@@ -119,7 +119,7 @@ export function ApplicationPackagePanel({
           </div>
         ) : null}
       </div>
-      <p className="section-note package-boundary">系统不会代你填写或提交申请表。在官网提交后，请在此记录“已投递”（#14 上线后提供）。</p>
+      <p className="section-note package-boundary">系统不会代你填写或提交申请表。在官网提交后，请在下方“投递记录”中记录。</p>
     </section>
   );
 }

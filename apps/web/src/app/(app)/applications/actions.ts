@@ -120,3 +120,50 @@ export async function setPackageStatus(formData: FormData) {
   revalidatePath(back);
   redirect(`${back}?notice=package_status_saved`);
 }
+
+export async function recordApplicationSubmitted(formData: FormData) {
+  const user = await requireUser();
+  const back = detailPath(formData);
+  if (user.isMock) redirect(`${back}?notice=preview`);
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const submittedOn = String(formData.get("submittedOn") ?? "").trim();
+  const reference = String(formData.get("applicationReference") ?? "").trim();
+  const answers = String(formData.get("answersText") ?? "").trim();
+  if (!uuidPattern.test(opportunityId) || (submittedOn && !/^\d{4}-\d{2}-\d{2}$/.test(submittedOn))
+    || reference.length > 200 || answers.length > 20000) {
+    redirect(`${back}?notice=submission_failed`);
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_my_application_submitted", {
+    target_opportunity_id: opportunityId,
+    target_submitted_on: (submittedOn || null) as string,
+    target_application_reference: (reference || null) as string,
+    target_answers_text: (answers || null) as string
+  });
+  if (error) {
+    const text = error.message.toLocaleLowerCase("en-US");
+    const notice = text.includes("privacy_locked") ? "privacy_locked"
+      : text.includes("already") ? "submission_exists"
+        : "submission_failed";
+    redirect(`${back}?notice=${notice}`);
+  }
+  revalidatePath(back);
+  redirect(`${back}?notice=submission_recorded`);
+}
+
+export async function undoApplicationSubmitted(formData: FormData) {
+  const user = await requireUser();
+  const back = detailPath(formData);
+  if (user.isMock) redirect(`${back}?notice=preview`);
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  if (!uuidPattern.test(snapshotId)) redirect(`${back}?notice=submission_undo_failed`);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("undo_my_application_submitted", { target_snapshot_id: snapshotId });
+  if (error) {
+    const text = error.message.toLocaleLowerCase("en-US");
+    redirect(`${back}?notice=${text.includes("changed_since") ? "submission_undo_stale"
+      : text.includes("privacy_locked") ? "privacy_locked" : "submission_undo_failed"}`);
+  }
+  revalidatePath(back);
+  redirect(`${back}?notice=submission_undone`);
+}

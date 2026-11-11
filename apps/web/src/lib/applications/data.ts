@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 type Tables = Database["public"]["Tables"];
 export type ApplicationPackage = Tables["application_packages"]["Row"];
 export type ApplicationPackageItem = Tables["application_package_items"]["Row"];
+export type ApplicationSnapshot = Tables["application_snapshots"]["Row"];
 export type PackageResumeOption = { id: string; label: string; versionNumber: number; documentKind: string; archived: boolean; createdAt: string };
 
 export type ApplicationPackageView = {
@@ -66,4 +67,13 @@ export async function getApplicationPackage(user: AppUser, opportunityId: string
     assignedResumeVersionId: resumes.assignedResumeVersionId,
     resumeWorkspaceEnabled
   };
+}
+
+export async function getApplicationSnapshots(user: AppUser, opportunityId: string): Promise<ApplicationSnapshot[]> {
+  if (user.isMock) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("application_snapshots").select("*")
+    .eq("opportunity_id", opportunityId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
