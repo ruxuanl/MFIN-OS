@@ -333,6 +333,75 @@ export type Database = {
         }
         Relationships: []
       }
+      application_snapshots: {
+        Row: {
+          answers_text: string | null
+          application_reference: string | null
+          checklist: Json
+          company: string
+          created_at: string
+          id: string
+          jd_text: string | null
+          opportunity_id: string
+          opportunity_version_after: number
+          package_id: string | null
+          previous_state: Json
+          resume_label: string | null
+          resume_version_id: string | null
+          role_title: string
+          source_url: string | null
+          status: string
+          submitted_at: string
+          track: string
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          answers_text?: string | null
+          application_reference?: string | null
+          checklist?: Json
+          company: string
+          created_at?: string
+          id?: string
+          jd_text?: string | null
+          opportunity_id: string
+          opportunity_version_after: number
+          package_id?: string | null
+          previous_state: Json
+          resume_label?: string | null
+          resume_version_id?: string | null
+          role_title: string
+          source_url?: string | null
+          status?: string
+          submitted_at: string
+          track: string
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          answers_text?: string | null
+          application_reference?: string | null
+          checklist?: Json
+          company?: string
+          created_at?: string
+          id?: string
+          jd_text?: string | null
+          opportunity_id?: string
+          opportunity_version_after?: number
+          package_id?: string | null
+          previous_state?: Json
+          resume_label?: string | null
+          resume_version_id?: string | null
+          role_title?: string
+          source_url?: string | null
+          status?: string
+          submitted_at?: string
+          track?: string
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_event_evidence: {
         Row: {
           audit_event_id: string
@@ -3107,6 +3176,19 @@ export type Database = {
       }
       set_my_application_package_status: {
         Args: { target_package_id: string; target_status: string }
+        Returns: undefined
+      }
+      record_my_application_submitted: {
+        Args: {
+          target_answers_text: string
+          target_application_reference: string
+          target_opportunity_id: string
+          target_submitted_on: string
+        }
+        Returns: string
+      }
+      undo_my_application_submitted: {
+        Args: { target_snapshot_id: string }
         Returns: undefined
       }
       import_my_internship_jd:

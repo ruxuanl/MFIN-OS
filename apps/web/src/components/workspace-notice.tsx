@@ -34,6 +34,12 @@ const messages: Record<string, string> = {
   package_failed: "投递包操作失败，请刷新后重试。",
   package_resume_confirmed: "已确认本次申请使用的简历版本。",
   package_status_saved: "投递包状态已更新。",
+  submission_recorded: "已记录投递并保存申请快照；系统没有代你提交任何内容。",
+  submission_exists: "这个岗位已有一条有效的投递记录；如需更正，请先撤销。",
+  submission_failed: "投递记录保存失败：岗位可能已进入测试或面试阶段，或日期无效。",
+  submission_undone: "已撤销投递记录；快照保留在历史中。",
+  submission_undo_stale: "记录之后岗位又有修改，不能自动撤销；请手动调整阶段。",
+  submission_undo_failed: "撤销失败，请刷新后重试。",
   preview: "隔离预览模式不会写入业务数据。"
 };
 

@@ -141,3 +141,10 @@
 - 两表对 authenticated 只读；写入只经 `create_my_application_package`、`confirm_my_application_package_resume`、`set_my_application_package_item`、`set_my_application_package_status` 四个 invoker 包装，背后为 `private` 下的 SECURITY DEFINER 实现，逐项核对 `auth.uid()`、对象所有权与隐私锁，并追加时间线与审计。
 - 创建时若岗位有截止日，同时创建一条 `opportunity` 上下文的截止行动（香港时间 18:00），Calendar 是否写入沿用现有同步规则；建议的准备时间只作为行动的 `suggested_start_at`，不自动写入 Calendar。
 
+## “我已投递”与申请快照（2026-11-12，#14）
+
+- `application_snapshots`：用户在官网提交后点击记录时写入。复制保存公司、岗位、JD 原文、来源链接、确认的简历版本 ID 与名称、材料清单完成情况、可选的申请表答案与申请编号、投递时间，以及记录前的岗位/投递包/截止行动状态（用于撤销）。简历版本只存 ID 与名称，不建外键，后续修改或删除简历不会改写快照。
+- 快照不可修改：触发器只允许一次 `active → undone`；同一岗位同时只能有一条 `active` 快照。删除只随岗位或用户的永久删除级联发生。
+- `record_my_application_submitted`：岗位须处于“新发现 / 评估 / 准备 / 已投递”；把岗位改为 `submitted`、写入 `applied_at` 与等待对方，把投递包置为 `submitted_recorded`，把截止行动标记完成，并写时间线与可撤销审计。
+- `undo_my_application_submitted`：仅当记录之后岗位没有其他修改（版本号一致）时恢复上述三处状态，快照标记为 `undone` 保留为历史；否则拒绝并提示手动调整。
+
