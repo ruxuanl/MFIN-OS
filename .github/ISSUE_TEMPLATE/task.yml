@@ -1,0 +1,40 @@
+name: 开发任务（Ticket）
+description: Sprint 中可独立交付的任务。流程见 docs/SCRUM.md。
+title: "[S?][area] 简短标题"
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 为什么要做，现状是什么。
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围
+      description: 要做的具体内容，尽量列成条目。
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: 不做
+      description: 明确排除的内容，尤其是 AGENTS.md 第 5 节的禁止能力。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 可检查的条目；默认还包括 docs/SCRUM.md 的完成定义。
+      value: |
+        - [ ]
+        - [ ] `pnpm run ci` 通过
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依赖与参考
+      description: 依赖的 issue、相关决策（Dxx）、ADR 或代码路径。
