@@ -6,12 +6,15 @@ import { ReauthenticateControl } from "@/components/reauthenticate-control";
 import { requireUser } from "@/lib/auth/session";
 import { isGmailServerConfigured } from "@/lib/config";
 import { getInboxData } from "@/lib/gmail/data";
+import { linkRuleLabel, opportunityHref } from "@/lib/gmail/link-model";
+import { getLinkSuggestions } from "@/lib/gmail/links";
 import { displayableGmailErrorCode } from "@/lib/gmail/errors";
 
 import {
   deleteGmailAttachmentAction,
   disconnectGmailAction,
   resolveInboxItemAction,
+  decideCommunicationLinkAction,
   setGmailConnectionState,
   triggerGmailSync,
   undoGmailUpdateAction
@@ -20,6 +23,11 @@ import {
 export const metadata = { title: "收件箱" };
 
 const notices: Record<string, string> = {
+  link_confirmed: "已确认关联；岗位时间线已记录，阶段没有被修改。",
+  link_rejected: "已标记为不相关，这封邮件不会再建议关联到该岗位。",
+  link_unlinked: "已撤销关联并写入审计。",
+  link_privacy_locked: "隐私锁已开启，关联未被修改。",
+  link_failed: "关联操作失败，请刷新后重试。",
   invalid_file_import: "文件导入字段无效；请选择支持的文件并补全公司与岗位。",
   file_empty: "文件为空，未创建任何记录。",
   file_too_large: "文件超过 5 MB；原文件未保存。",
@@ -84,7 +92,7 @@ const statusLabels: Record<string, string> = {
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const user = await requireUser();
-  const data = await getInboxData(user);
+  const [data, suggestions] = await Promise.all([getInboxData(user), getLinkSuggestions(user)]);
   const { notice } = await searchParams;
   const configured = isGmailServerConfigured();
   const connectionStatus = data.connection?.status ?? "disconnected";
@@ -170,6 +178,28 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
             </article>;
           })}
           {data.items.length === 0 ? <p className="workspace-empty small-empty">尚无收件项目。可手动导入微信文字/链接，或连接 Gmail 后同步。</p> : null}
+        </div>
+      </section>
+      <section className="calendar-section">
+        <div className="section-heading"><p>Link suggestions</p><h2>邮件与岗位关联建议</h2></div>
+        <p className="section-note">只有发件域名、公司名或岗位名唯一匹配一个岗位时才会出现建议（mail_link_rules_v1，非 AI）。确认后写入岗位时间线，不会修改岗位阶段。</p>
+        <div className="inbox-list">
+          {suggestions.map((link) => <article key={link.id}>
+            <div className="inbox-item-head">
+              <div>
+                <strong>{link.message?.subject ?? "邮件已不可用"}</strong>
+                <p>建议关联到 {link.opportunity ? <Link className="quiet-link" href={opportunityHref(link.opportunity.track, link.opportunity.id)}>{link.opportunity.company} · {link.opportunity.roleTitle}</Link> : "已删除的岗位"}</p>
+              </div>
+              <span className="status-pill">待确认</span>
+            </div>
+            <small>{linkRuleLabel(link.matchRule)} · {link.matchEvidence}{link.message ? ` · ${new Date(link.message.receivedAt).toLocaleString("zh-CN")}` : ""}</small>
+            <div className="inbox-item-actions">
+              {link.message ? <a className="quiet-link" href={link.message.gmailLink} target="_blank" rel="noreferrer">打开 Gmail 原邮件 ↗</a> : null}
+              <form action={decideCommunicationLinkAction}><input type="hidden" name="linkId" value={link.id}/><input type="hidden" name="returnTo" value="/inbox"/><SubmitButton className="primary-button" name="decision" value="confirm" pendingLabel="正在关联…">确认关联</SubmitButton></form>
+              <form action={decideCommunicationLinkAction}><input type="hidden" name="linkId" value={link.id}/><input type="hidden" name="returnTo" value="/inbox"/><SubmitButton className="quiet-button" name="decision" value="reject" pendingLabel="正在处理…">不是这个岗位</SubmitButton></form>
+            </div>
+          </article>)}
+          {suggestions.length === 0 ? <p className="workspace-empty small-empty">暂无待确认的关联建议。</p> : null}
         </div>
       </section>
       <p className="forbidden-note">永久禁止：本产品不会发送微信消息，也不会读取非白名单聊天；没有 Gmail 发送、回复、转发、归档、删除、标签或已读状态写入能力。</p>

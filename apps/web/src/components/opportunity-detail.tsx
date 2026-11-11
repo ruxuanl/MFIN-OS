@@ -6,11 +6,13 @@ import { ApplicationPackagePanel } from "@/components/application-package-panel"
 import { ApplicationSubmissionPanel } from "@/components/application-submission-panel";
 import { PageHeader } from "@/components/page-header";
 import { OpportunityAiPanel } from "@/components/opportunity-ai-panel";
+import { OpportunityCommunicationsPanel } from "@/components/opportunity-communications-panel";
 import { WorkspaceMutationForm, type MutationField } from "@/components/workspace-mutation-form";
 import { WorkspaceNotice } from "@/components/workspace-notice";
 import { ActionPanel, ConflictPanel, CustomFieldsPanel, TimelinePanel } from "@/components/workspace-detail-panels";
 import { getApplicationPackage, getApplicationSnapshots } from "@/lib/applications/data";
 import { requireUser } from "@/lib/auth/session";
+import { getOpportunityCommunications } from "@/lib/gmail/links";
 import { getOpportunityResumeContext } from "@/lib/resumes/data";
 import { getOpportunityDetail } from "@/lib/workspaces/data";
 import { opportunityStages, stageLabels } from "@/lib/workspaces/model";
@@ -27,11 +29,12 @@ export async function OpportunityDetail({
   const user = await requireUser();
   // One parallel batch: the detail, resume context, package and snapshots are all
   // owner-scoped by RLS, so loading them before the not-found check is safe.
-  const [data, resumeContext, packageView, snapshots] = await Promise.all([
+  const [data, resumeContext, packageView, snapshots, communications] = await Promise.all([
     getOpportunityDetail(user, id, track),
     track === "internship" && isResumeWorkspaceEnabled() ? getOpportunityResumeContext(user, id) : Promise.resolve(null),
     getApplicationPackage(user, id),
-    getApplicationSnapshots(user, id)
+    getApplicationSnapshots(user, id),
+    getOpportunityCommunications(user, id)
   ]);
   if (!data) notFound();
   const item = data.opportunity;
@@ -106,6 +109,7 @@ export async function OpportunityDetail({
         </section> : null}
         <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
         <ApplicationSubmissionPanel snapshots={snapshots} opportunityId={item.id} mainStage={item.main_stage} returnTo={returnTo} />
+        <OpportunityCommunicationsPanel links={communications} returnTo={returnTo} />
         <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} />
         <CustomFieldsPanel definitions={data.customFields} values={data.customValues} scope={track} entityType="opportunity" entityId={item.id} returnTo={returnTo} />
         <TimelinePanel timeline={data.timeline} />

@@ -9,6 +9,7 @@ import { safeGmailErrorCode } from "@/lib/gmail/errors";
 import { deleteImportedGmailAttachment, disconnectGmail, runGmailSync } from "@/lib/gmail/service";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isLinkDecision } from "@/lib/gmail/link-model";
 
 export async function triggerGmailSync() {
   const user = await requireUser();
@@ -78,4 +79,22 @@ export async function deleteGmailAttachmentAction(formData: FormData) {
   if (!attachmentId) redirect("/inbox?notice=invalid");
   try { await deleteImportedGmailAttachment(user.id, attachmentId); } catch { redirect("/inbox?notice=attachment_delete_failed"); }
   revalidatePath("/inbox"); redirect("/inbox?notice=attachment_deleted");
+}
+
+export async function decideCommunicationLinkAction(formData: FormData) {
+  const user = await requireUser();
+  const linkId = String(formData.get("linkId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const returnTo = String(formData.get("returnTo") ?? "/inbox");
+  const back = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/inbox";
+  const separator = back.includes("?") ? "&" : "?";
+  if (user.isMock || !linkId || !isLinkDecision(decision)) redirect(`${back}${separator}notice=invalid`);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decide_my_communication_link", { target_link_id: linkId, target_decision: decision });
+  if (error) {
+    const locked = error.message.toLocaleLowerCase("en-US").includes("privacy_locked");
+    redirect(`${back}${separator}notice=${locked ? "link_privacy_locked" : "link_failed"}`);
+  }
+  revalidatePath("/inbox"); revalidatePath(back);
+  redirect(`${back}${separator}notice=link_${decision}ed`);
 }

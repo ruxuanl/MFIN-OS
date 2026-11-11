@@ -141,3 +141,8 @@
 - `search_documents` 对 authenticated 只读且受 RLS 限制为本人行；写入只来自 `private` 下的投影函数（触发器调用）。
 - 搜索与重建均为 invoker 包装；隐私锁开启时服务器拒绝（`privacy_locked`）。按任意用户 ID 重建的 `private.rebuild_search_documents(uuid)` 只授予 `service_role`，浏览器角色只能经 `rebuild_my_search_documents_impl()` 重建自己的数据。
 - 查询长度 ≤200、结果数 1–100；LIKE 通配符被转义。anon 无执行权限。
+
+## 邮件关联边界（#17）
+
+- `opportunity_communications` 对 authenticated 只读；建议只由触发器在数据库内生成，用户决定只经 `decide_my_communication_link`。建议与确认都不会修改岗位阶段，也不涉及任何外发邮件能力（Gmail 仍只有 `gmail.readonly`）。
+- SECURITY DEFINER 的匹配函数不使用临时表：调用者可在会话中预先创建同名临时表并借此注入其他用户的岗位 ID。测试固定这一约束。

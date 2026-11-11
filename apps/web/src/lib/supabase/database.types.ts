@@ -2025,6 +2025,51 @@ export type Database = {
           },
         ]
       }
+      opportunity_communications: {
+        Row: {
+          decided_at: string | null
+          created_at: string
+          gmail_message_id: string
+          id: string
+          match_evidence: string
+          match_rule: string
+          opportunity_id: string
+          rule_version: string
+          status: string
+          suggested_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          created_at?: string
+          gmail_message_id: string
+          id?: string
+          match_evidence: string
+          match_rule: string
+          opportunity_id: string
+          rule_version?: string
+          status?: string
+          suggested_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          created_at?: string
+          gmail_message_id?: string
+          id?: string
+          match_evidence?: string
+          match_rule?: string
+          opportunity_id?: string
+          rule_version?: string
+          status?: string
+          suggested_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       opportunity_candidates: {
         Row: {
           company: string
@@ -3277,6 +3322,10 @@ export type Database = {
           title: string
           track: string | null
         }[]
+      }
+      decide_my_communication_link: {
+        Args: { target_decision: string; target_link_id: string }
+        Returns: string
       }
       decide_my_candidates: {
         Args: { target_candidate_ids: string[]; target_decision: string; target_reason?: string }

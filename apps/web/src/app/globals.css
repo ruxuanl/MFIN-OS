@@ -814,3 +814,9 @@ a[aria-busy="true"] { pointer-events: none; }
 .candidate-card.has-error { border-color: var(--danger, #b4534a); }
 .candidate-batch-failures { margin: -8px 0 16px; padding-left: 18px; color: var(--danger, #b4534a); font-size: calc(11px + var(--workspace-font-boost, 0px)); }
 .workspace-notice.notice-error { border-color: color-mix(in srgb, var(--danger, #b4534a) 42%, transparent); background: transparent; color: var(--danger, #b4534a); }
+
+/* Opportunity communications (#17) */
+.communication-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.communication-list li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.communication-list li > div:first-child { display: grid; gap: 2px; }
+.communication-list small { color: var(--ink-faint); }
