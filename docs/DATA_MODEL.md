@@ -169,3 +169,10 @@
 - 即时推送只用于 24 小时内截止（宪法 7.2）：截止日按香港时间 18:00 计（与 #13 投递包一致），类型沿用白名单内的 `deadline_24h`，须 `notifications.smart_push` 授权；`dedupe_key = deadline_24h:<类型>:<id>:<截止日>`，重复扫描不重复入队。`private.enqueue_due_deadline_notifications()` 由 pg_cron 每小时第 7 分执行；生成晨报时也会为本人执行一次。
 - 前三项（`focus`）升级为 `rules_v2`：开放行动与未完成投递包（`draft / ready`）统一打分排序；投递包会替代它自己的截止行动，同一岗位不会占两个名额。理由文本标注“规则重点（非 AI）”。
 - `reports.generation_strategy` 允许 `rules_v2`；新报告摘要写明规则版本与数据截止时间，界面显示“规则排序 v2 · 非 AI”。
+
+## 邮件与岗位关联（2026-11-12，#17）
+
+- `opportunity_communications`：一封 Gmail 邮件与一个长期表岗位的关联，状态 `suggested / linked / rejected / unlinked`，保存匹配规则、证据片段和 `mail_link_rules_v1`。同一封邮件最多一个 `linked`；同一对邮件与岗位只有一行，因此被拒绝或撤销的组合不会被再次建议。
+- 建议由 `gmail_messages` 上的触发器生成（`classification = 'job'`，主题、发件人摘要、摘要或行动标题变化时）。按顺序尝试四条规则，**只在恰好命中一个进行中岗位时**生成建议：发件人域名（取自岗位来源链接，招聘平台和公共邮箱域名除外）→ 公司名（去掉括号注记与“有限公司 / Ltd”等后缀）→ 公司名 + 岗位名 → 岗位名（≥6 字符）。唯一性按全部进行中岗位判断；结果若是用户拒绝或撤销过的组合则丢弃，不退而选择下一个岗位。已被 D23 面试自动更新关联的邮件不再建议。
+- `decide_my_communication_link(link, confirm | reject | unlink)`：只有用户本人可执行，隐私锁开启时拒绝；确认与撤销写入岗位时间线（`communication_linked / communication_unlinked`），三种操作都写审计（`stageChanged: false`）。任何操作都不修改岗位阶段，D23 的自动闭环条件没有扩大。
+- 界面：收件箱新增“邮件与岗位关联建议”，岗位详情新增“相关邮件”，可撤销关联。

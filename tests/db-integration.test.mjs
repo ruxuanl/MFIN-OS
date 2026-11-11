@@ -205,3 +205,43 @@ test("deadline reminders: 7/3/1 tiers, rules_v2 top three, 24h push de-duplicate
   assert.equal(denied, "0", "no push without notifications.smart_push");
   assert.throws(() => asUser(`select private.enqueue_due_deadline_notifications()`), /permission denied/);
 });
+
+test("mail ↔ opportunity links: unique-match suggestions, confirm / reject / unlink, privacy lock", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const opp = (n) => `f7000000-0000-4000-8000-00000000000${n}`;
+  const setup = `reset role;
+    insert into public.opportunities (id, user_id, track, intent, company, role_title, main_stage, source_url) values
+      ('${opp(1)}', '${user}', 'internship', 'track', '关联示例银行', 'Summer Analyst', 'submitted', 'https://careers.linkbank.example/1'),
+      ('${opp(2)}', '${user}', 'graduate', 'track', '关联双岗公司', 'Graduate Analyst', 'submitted', null),
+      ('${opp(3)}', '${user}', 'graduate', 'track', '关联双岗公司', 'Research Associate', 'submitted', 'https://jobs.myworkdayjobs.com/x');
+    insert into public.gmail_messages (user_id, provider_message_id, provider_thread_id, history_id, received_at, classification,
+      sender_summary, subject, summary, gmail_link, confidence) values
+      ('${user}', 'lk1', 'lk1', '1', now(), 'job', 'Recruiting · linkbank.example', 'Application received', null, 'https://mail.google.com/mail/u/0/#inbox/lk1', 0.9),
+      ('${user}', 'lk2', 'lk2', '1', now(), 'job', 'HR', '关联双岗公司 通知', null, 'https://mail.google.com/mail/u/0/#inbox/lk2', 0.9),
+      ('${user}', 'lk3', 'lk3', '1', now(), 'job', 'HR', '关联双岗公司 Research Associate 笔试', null, 'https://mail.google.com/mail/u/0/#inbox/lk3', 0.9),
+      ('${user}', 'lk4', 'lk4', '1', now(), 'personal', 'HR', '关联示例银行 年会', null, 'https://mail.google.com/mail/u/0/#inbox/lk4', 0.9);
+    set local role authenticated`;
+  const link = (message) => `(select c.id from public.opportunity_communications c join public.gmail_messages m on m.id = c.gmail_message_id where m.provider_message_id = '${message}')`;
+  const last = (sql) => asUser(`${setup}; ${sql}`).split("\n").pop();
+
+  assert.equal(last(`select string_agg(m.provider_message_id || ':' || c.match_rule || ':' || c.opportunity_id, ',' order by m.provider_message_id)
+    from public.opportunity_communications c join public.gmail_messages m on m.id = c.gmail_message_id`),
+    `lk1:sender_domain:${opp(1)},lk3:company_and_role:${opp(3)}`, "ambiguous company and personal mail produce no suggestion");
+
+  assert.equal(last(`select public.decide_my_communication_link(${link("lk1")}, 'confirm');
+    select (select main_stage from public.opportunities where id = '${opp(1)}') || '|' ||
+      (select count(*) from public.timeline_entries where entity_id = '${opp(1)}' and event_type = 'communication_linked') || '|' ||
+      public.decide_my_communication_link(${link("lk1")}, 'confirm')`), "submitted|1|linked", "confirm is idempotent and leaves the stage alone");
+  assert.equal(last(`select public.decide_my_communication_link(${link("lk1")}, 'confirm'); select public.decide_my_communication_link(${link("lk1")}, 'unlink');
+    select count(*) from public.audit_events where action in ('communication.confirm', 'communication.unlink') and object_id = ${link("lk1")}::text`), "2");
+  assert.equal(last(`select public.decide_my_communication_link(${link("lk3")}, 'reject');
+    reset role; update public.gmail_messages set summary = '再次更新' where provider_message_id = 'lk3'; set local role authenticated;
+    select string_agg(status, ',') from public.opportunity_communications c join public.gmail_messages m on m.id = c.gmail_message_id where m.provider_message_id = 'lk3'`),
+    "rejected", "a rejected pair is never suggested again");
+  assert.throws(() => asUser(`${setup}; select public.decide_my_communication_link(${link("lk3")}, 'unlink')`), /invalid_link_transition/);
+  assert.throws(() => asUser(`${setup}; insert into public.opportunity_communications (user_id, opportunity_id, gmail_message_id, match_rule, match_evidence)
+    values ('${user}', '${opp(2)}', (select id from public.gmail_messages where provider_message_id = 'lk2'), 'company_name', 'x')`), /permission denied/);
+  assert.throws(() => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked, locked_at) values ('${user}', true, now())
+      on conflict (user_id) do update set is_locked = true, locked_at = now();
+    set local role authenticated; select public.decide_my_communication_link(${link("lk1")}, 'confirm')`), /privacy_locked/);
+});

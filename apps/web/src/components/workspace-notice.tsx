@@ -38,6 +38,11 @@ const messages: Record<string, string> = {
   submission_exists: "这个岗位已有一条有效的投递记录；如需更正，请先撤销。",
   submission_failed: "投递记录保存失败：岗位可能已进入测试或面试阶段，或日期无效。",
   submission_undone: "已撤销投递记录；快照保留在历史中。",
+  link_unlinked: "已撤销邮件关联并写入审计；岗位阶段没有变化。",
+  link_privacy_locked: "隐私锁已开启，邮件关联未被修改。",
+  link_failed: "邮件关联操作失败，请刷新后重试。",
+  link_confirmed: "已确认邮件关联。",
+  link_rejected: "已标记为不相关。",
   submission_undo_stale: "记录之后岗位又有修改，不能自动撤销；请手动调整阶段。",
   submission_undo_failed: "撤销失败，请刷新后重试。",
   preview: "隔离预览模式不会写入业务数据。"
