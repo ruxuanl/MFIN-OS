@@ -135,3 +135,9 @@
 - “我已投递”只记录用户已在官网完成的事实，不访问任何外部系统；审计中固定 `externalAction: false`。
 - 浏览器角色对 `application_snapshots` 只读；快照即使由数据库所有者也无法改写内容（触发器拒绝），只允许一次撤销标记。
 
+
+## 搜索边界（#12）
+
+- `search_documents` 对 authenticated 只读且受 RLS 限制为本人行；写入只来自 `private` 下的投影函数（触发器调用）。
+- 搜索与重建均为 invoker 包装；隐私锁开启时服务器拒绝（`privacy_locked`）。按任意用户 ID 重建的 `private.rebuild_search_documents(uuid)` 只授予 `service_role`，浏览器角色只能经 `rebuild_my_search_documents_impl()` 重建自己的数据。
+- 查询长度 ≤200、结果数 1–100；LIKE 通配符被转义。anon 无执行权限。

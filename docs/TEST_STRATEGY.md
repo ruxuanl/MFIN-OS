@@ -130,3 +130,4 @@ M0 不安装产品依赖，不运行数据库，不连接外部账号。GitHub A
 - `pnpm test:db`（需 `MFIN_TEST_PG=1`）：从空库应用全部迁移，执行合成种子两次验证幂等，以 `authenticated` 角色经 RLS 读取，执行清除并确认残留为 0，再验证 `import_my_jd` 的创建、跨线去重与非法 track 拒绝。
 - 托管环境特有行为（Auth Hook、Storage 签名链接、pg_cron 实际调度、pg_net 外呼）仍需在隔离 Test 项目验证。
 
+- 搜索（#12）：`tests/search-migration.test.mjs` 固定只读授权、三类触发器、Gmail 不含正文、隐私锁与执行授权；`pnpm test:db` 覆盖两字中文命中、AND 词、track 与公司筛选、删除触发器清理、重建、跨用户重建被拒、超长查询、隐私锁与 anon 拒绝。

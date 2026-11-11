@@ -2522,6 +2522,63 @@ export type Database = {
           },
         ]
       }
+      search_documents: {
+        Row: {
+          body: string
+          company: string | null
+          deadline: string | null
+          id: string
+          indexed_at: string
+          location: string | null
+          object_id: string
+          object_type: string
+          search_text: string | null
+          source_at: string | null
+          source_kind: string
+          source_url: string | null
+          stage: string | null
+          title: string
+          track: string | null
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          company?: string | null
+          deadline?: string | null
+          id?: string
+          indexed_at?: string
+          location?: string | null
+          object_id: string
+          object_type: string
+          search_text?: string | null
+          source_at?: string | null
+          source_kind: string
+          source_url?: string | null
+          stage?: string | null
+          title: string
+          track?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          company?: string | null
+          deadline?: string | null
+          id?: string
+          indexed_at?: string
+          location?: string | null
+          object_id?: string
+          object_type?: string
+          search_text?: string | null
+          source_at?: string | null
+          source_kind?: string
+          source_url?: string | null
+          stage?: string | null
+          title?: string
+          track?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_views: {
         Row: {
           created_at: string
@@ -3190,6 +3247,36 @@ export type Database = {
       undo_my_application_submitted: {
         Args: { target_snapshot_id: string }
         Returns: undefined
+      }
+      rebuild_my_search_documents: { Args: never; Returns: number }
+      search_my_workspace: {
+        Args: {
+          target_company?: string
+          target_deadline_from?: string
+          target_deadline_to?: string
+          target_limit?: number
+          target_location?: string
+          target_query: string
+          target_stage?: string
+          target_track?: string
+          target_types?: string[]
+        }
+        Returns: {
+          company: string | null
+          deadline: string | null
+          indexed_at: string
+          location: string | null
+          object_id: string
+          object_type: string
+          score: number
+          snippet: string
+          source_at: string | null
+          source_kind: string
+          source_url: string | null
+          stage: string | null
+          title: string
+          track: string | null
+        }[]
       }
       import_my_internship_jd:
         | {

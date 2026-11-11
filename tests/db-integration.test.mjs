@@ -100,3 +100,34 @@ test("submission record: snapshot, immutability, undo and re-record", { skip: !e
     select public.undo_my_application_submitted((select id from s))`), /opportunity_changed_since_submission/);
 });
 
+
+test("search v1: Chinese substrings, AND terms, filters, trigger upkeep, privacy lock", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const jd = (company, role, location, hash) => `'${company}','${role}',null,'${location}',current_date + 7,null,null,'${"合成投行岗位描述 Python 建模 ".repeat(3)}','研究支持','熟悉 Excel',null,'jd_rules_v2',0.7,array[]::text[],'${hash.repeat(64)}','evaluation',null`;
+  const setup = `select public.import_my_jd('graduate', ${jd("搜索示例资本", "投行分析师", "上海", "a")});
+    select public.import_my_jd('internship', ${jd("另一示例银行", "Summer Analyst", "香港", "b")})`;
+  const search = (args) => asUser(`${setup}; select coalesce(string_agg(title, ',' order by title), '∅') from public.search_my_workspace(${args})`).split("\n").pop();
+
+  assert.match(search("'投行'"), /投行分析师/, "two-character Chinese term matches");
+  assert.equal(search("'python 上海'"), "搜索示例资本 · 投行分析师", "AND across body terms, including location");
+  assert.equal(search("'投行 python', target_track => 'internship'"), "另一示例银行 · Summer Analyst", "AND terms plus track filter");
+  assert.equal(search("'', target_company => '搜索示例'"), "搜索示例资本 · 投行分析师", "company filter alone");
+  assert.equal(search("'不存在的词'"), "∅", "no false positives");
+  assert.equal(search("'%'"), "∅", "LIKE wildcards are escaped");
+
+  const removed = asUser(`${setup}; delete from public.opportunities where company = '另一示例银行';
+    select count(*) from public.search_documents`).split("\n").pop();
+  assert.equal(removed, "1", "delete trigger removes the document");
+
+  const rebuilt = asUser(`${setup}; select public.rebuild_my_search_documents()`).split("\n").pop();
+  assert.equal(rebuilt, "2", "rebuild re-projects from source rows");
+  assert.throws(() => asUser(`select private.rebuild_search_documents('${user}')`), /permission denied/, "no cross-user rebuild");
+  assert.throws(() => asUser(`select * from public.search_my_workspace('${"x".repeat(201)}')`), /invalid_search/);
+
+  const locked = (sql) => () => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked, locked_at) values ('${user}', true, now())
+      on conflict (user_id) do update set is_locked = true, locked_at = now();
+    set local role authenticated; ${sql}`);
+  assert.throws(locked("select * from public.search_my_workspace('投行')"), /privacy_locked/);
+  assert.throws(locked("select public.rebuild_my_search_documents()"), /privacy_locked/);
+  assert.throws(() => psql("begin; set local role anon; select * from public.search_my_workspace('投行'); rollback"), /permission denied/);
+});
