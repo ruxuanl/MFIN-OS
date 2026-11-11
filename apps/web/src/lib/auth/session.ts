@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { getAuthMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +13,8 @@ const mockUser: AppUser = {
   isMock: true
 };
 
-export async function getCurrentUser(): Promise<AppUser | null> {
+// cache(): the layout and the page both ask for the user; resolve claims once per request.
+export const getCurrentUser = cache(async (): Promise<AppUser | null> => {
   const mode = getAuthMode();
   if (mode === "mock") return mockUser;
   if (mode === "unconfigured") return null;
@@ -38,7 +40,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     avatarUrl: typeof metadata.avatar_url === "string" ? metadata.avatar_url : undefined,
     isMock: false
   };
-}
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();

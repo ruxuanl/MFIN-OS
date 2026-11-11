@@ -2,6 +2,7 @@ import { isResumeWorkspaceEnabled } from "@/lib/config";
 import type { AppUser } from "@/lib/auth/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { toIlikePattern } from "@/lib/workspaces/list-query";
 
 type Tables = Database["public"]["Tables"];
 export type Candidate = Tables["opportunity_candidates"]["Row"];
@@ -21,14 +22,19 @@ export type OpportunityFilters = {
   stage?: string;
   state?: "active" | "archived";
   sort?: "updated" | "deadline" | "company";
+  page?: number;
 };
 
-function compareNullable(left: string | null, right: string | null) {
-  if (left === right) return 0;
-  if (left === null) return 1;
-  if (right === null) return -1;
-  return left.localeCompare(right, "zh-CN");
-}
+export const opportunityPageSize = 50;
+
+// List views only need these columns; raw JD, responsibilities and requirements
+// (up to tens of KB per row) are loaded on the detail page only.
+const opportunityListColumns =
+  "id,track,company,role_title,department,location,main_stage,substage,deadline,applied_at,record_state,updated_at";
+const candidateListColumns =
+  "id,track,company,role_title,department,location,deadline,source_summary,source_url,decision_status,updated_at";
+const stageValues = new Set(["new", "evaluation", "preparation", "submitted", "test", "interview", "waiting", "offer", "ended"]);
+
 
 export async function getOpportunityWorkspace(
   user: AppUser,
@@ -36,27 +42,47 @@ export async function getOpportunityWorkspace(
   filters: OpportunityFilters = {}
 ) {
   if (user.isMock) {
-    return { candidates: [], opportunities: [], actions: [], views: [], pendingConflicts: 0, resumeByOpportunity: {} };
+    return {
+      candidates: [], opportunities: [], totalOpportunities: 0, page: 1, pageSize: opportunityPageSize,
+      actions: [], views: [], pendingConflicts: 0, resumeByOpportunity: {}
+    };
   }
 
   const supabase = await createClient();
   const scope = track === "internship" ? "internships" : "graduate";
+  const page = Math.max(1, Math.floor(filters.page ?? 1));
+  const from = (page - 1) * opportunityPageSize;
+
+  let opportunityQuery = supabase
+    .from("opportunities")
+    .select(opportunityListColumns, { count: "exact" })
+    .eq("track", track)
+    .eq("record_state", filters.state ?? "active");
+  if (filters.stage && stageValues.has(filters.stage)) opportunityQuery = opportunityQuery.eq("main_stage", filters.stage);
+  const pattern = toIlikePattern(filters.query);
+  if (pattern) {
+    opportunityQuery = opportunityQuery.or(
+      ["company", "role_title", "location", "department"].map((column) => `${column}.ilike.${pattern}`).join(",")
+    );
+  }
+  opportunityQuery = filters.sort === "deadline"
+    ? opportunityQuery.order("deadline", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false })
+    : filters.sort === "company"
+      ? opportunityQuery.order("company", { ascending: true }).order("updated_at", { ascending: false })
+      : opportunityQuery.order("updated_at", { ascending: false });
+
   const [candidateResult, opportunityResult, actionResult, viewResult, conflictResult,
     assignmentResult, resumeVersionResult, resumeDocumentResult] = await Promise.all([
     supabase
       .from("opportunity_candidates")
-      .select("*")
+      .select(candidateListColumns)
       .eq("track", track)
       .in("decision_status", ["candidate", "later"])
       .order("updated_at", { ascending: false }),
-    supabase
-      .from("opportunities")
-      .select("*")
-      .eq("track", track)
-      .order("updated_at", { ascending: false }),
+    opportunityQuery.range(from, from + opportunityPageSize - 1),
     supabase
       .from("actions")
-      .select("*")
+      .select("id,context_id,title,due_at,status")
       .eq("track", track)
       .neq("status", "cancelled")
       .order("due_at", { ascending: true, nullsFirst: false }),
@@ -73,23 +99,8 @@ export async function getOpportunityWorkspace(
     .find(Boolean);
   if (firstError) throw firstError;
 
-  let opportunities = opportunityResult.data ?? [];
-  const query = filters.query?.trim().toLocaleLowerCase("zh-CN");
-  if (query) {
-    opportunities = opportunities.filter((item) =>
-      [item.company, item.role_title, item.location, item.department]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase("zh-CN").includes(query))
-    );
-  }
-  if (filters.stage) opportunities = opportunities.filter((item) => item.main_stage === filters.stage);
-  opportunities = opportunities.filter((item) => item.record_state === (filters.state ?? "active"));
-
-  opportunities.sort((left, right) => {
-    if (filters.sort === "deadline") return compareNullable(left.deadline, right.deadline);
-    if (filters.sort === "company") return left.company.localeCompare(right.company, "zh-CN");
-    return right.updated_at.localeCompare(left.updated_at);
-  });
+  const opportunities = opportunityResult.data ?? [];
+  const totalOpportunities = opportunityResult.count ?? opportunities.length;
 
   const resumeVersions = new Map((resumeVersionResult.data ?? []).map((version) => [version.id, version]));
   const resumeDocuments = new Map((resumeDocumentResult.data ?? []).map((document) => [document.id, document]));
@@ -123,6 +134,9 @@ export async function getOpportunityWorkspace(
   return {
     candidates: candidateResult.data ?? [],
     opportunities,
+    totalOpportunities,
+    page,
+    pageSize: opportunityPageSize,
     actions: actionResult.data ?? [],
     views: viewResult.data ?? [],
     pendingConflicts: conflictResult.count ?? 0,

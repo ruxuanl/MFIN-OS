@@ -25,14 +25,16 @@ export async function OpportunityDetail({
   notice?: string;
 }) {
   const user = await requireUser();
-  const data = await getOpportunityDetail(user, id, track);
-  if (!data) notFound();
-  const item = data.opportunity;
-  const [resumeContext, packageView, snapshots] = await Promise.all([
+  // One parallel batch: the detail, resume context, package and snapshots are all
+  // owner-scoped by RLS, so loading them before the not-found check is safe.
+  const [data, resumeContext, packageView, snapshots] = await Promise.all([
+    getOpportunityDetail(user, id, track),
     track === "internship" && isResumeWorkspaceEnabled() ? getOpportunityResumeContext(user, id) : Promise.resolve(null),
     getApplicationPackage(user, id),
     getApplicationSnapshots(user, id)
   ]);
+  if (!data) notFound();
+  const item = data.opportunity;
   const basePath = track === "internship" ? "/internships" : "/graduate";
   const returnTo = `${basePath}/${id}`;
   const locked = new Set(data.locks.map((lock) => lock.field_path));
