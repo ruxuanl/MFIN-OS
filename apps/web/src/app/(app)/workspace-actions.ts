@@ -43,13 +43,16 @@ function nullableRpc<T>(value: T | null) {
   return value as T;
 }
 
-export async function importInternshipJd(formData: FormData) {
+export async function importOpportunityJd(formData: FormData) {
   const user = await requireUser();
-  if (user.isMock) redirect("/internships?notice=preview");
+  const track = String(formData.get("track") ?? "internship");
+  if (!tracks.has(track)) redirect("/internships?notice=jd_import_failed");
+  const base = trackPath(track);
+  if (user.isMock) redirect(`${base}?notice=preview`);
 
   const rawJd = String(formData.get("rawJd") ?? "").trim();
   if (rawJd.length < 20 || rawJd.length > maxInternshipJdLength) {
-    redirect("/internships?notice=jd_import_failed");
+    redirect(`${base}?notice=jd_import_failed`);
   }
 
   const extraction = parseInternshipJd(rawJd);
@@ -69,7 +72,7 @@ export async function importInternshipJd(formData: FormData) {
     deadline = optionalDirectText(formData, "deadline", 20);
     sourceUrl = optionalDirectText(formData, "sourceUrl", 2048);
   } catch {
-    redirect("/internships?notice=jd_import_incomplete");
+    redirect(`${base}?notice=jd_import_incomplete`);
   }
 
   const stage = String(formData.get("stage") ?? "evaluation");
@@ -80,7 +83,7 @@ export async function importInternshipJd(formData: FormData) {
     || (deadline && !/^\d{4}-\d{2}-\d{2}$/.test(deadline))
     || (appliedAtDate && !/^\d{4}-\d{2}-\d{2}$/.test(appliedAtDate))
     || (sourceUrl && !sourceUrl.startsWith("https://"))) {
-    redirect("/internships?notice=jd_import_failed");
+    redirect(`${base}?notice=jd_import_failed`);
   }
 
   const fingerprint = createHash("sha256").update(rawJd, "utf8").digest("hex");
@@ -94,7 +97,7 @@ export async function importInternshipJd(formData: FormData) {
   ].filter(Boolean));
   const remainingGaps = extraction.gaps.filter((gap) => !confirmedFields.has(gap));
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("import_my_internship_jd", {
+  const { data, error } = await supabase.rpc("import_my_jd", {
     target_application_method: nullableRpc(extraction.applicationMethod),
     target_applied_at: nullableRpc(stage === "submitted" ? (appliedAtDate ? `${appliedAtDate}T12:00:00+08:00` : null) : null),
     target_company: company,
@@ -111,20 +114,23 @@ export async function importInternshipJd(formData: FormData) {
     target_responsibilities: nullableRpc(extraction.responsibilities),
     target_role_title: roleTitle,
     target_source_url: nullableRpc(sourceUrl),
-    target_stage: stage
+    target_stage: stage,
+    target_track: track
   });
   if (error || !data?.[0]?.opportunity_id) {
     const message = error?.message.toLocaleLowerCase("en-US") ?? "";
     if (message.includes("privacy_locked") || message.includes("row-level security")) {
-      redirect("/internships?notice=privacy_locked");
+      redirect(`${base}?notice=privacy_locked`);
     }
-    redirect("/internships?notice=jd_import_failed");
+    redirect(`${base}?notice=jd_import_failed`);
   }
 
   const result = data[0];
-  revalidatePath("/internships");
-  revalidatePath(`/internships/${result.opportunity_id}`);
-  redirect(`/internships/${result.opportunity_id}?notice=${result.created ? "jd_imported" : "jd_duplicate"}`);
+  // A duplicate JD may already live under the other track; open it where it is.
+  const resultBase = trackPath(result.opportunity_track);
+  revalidatePath(resultBase);
+  revalidatePath(`${resultBase}/${result.opportunity_id}`);
+  redirect(`${resultBase}/${result.opportunity_id}?notice=${result.created ? "jd_imported" : "jd_duplicate"}`);
 }
 
 export async function createCandidate(formData: FormData) {

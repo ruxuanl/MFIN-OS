@@ -53,7 +53,7 @@
 - PWA 只缓存列表所需的最小快照和 Outbox；数据库提交成功前不把本地写入宣称为服务器事实。
 - Realtime 只用于通知客户端刷新，不作为排序、冲突判定或最终状态的事实源。
 
-## 实习 JD 粘贴快速建档
+## JD 粘贴快速建档（实习与秋招）
 
 - `opportunity_candidates.jd_fingerprint`：保存用户粘贴原文的 SHA-256；按用户唯一，保证重复提交返回同一正式记录。
 - `opportunities.raw_jd`：最长 50000 字的用户主动粘贴原文；详情页按需展开，不进入普通日志或审计差异。
@@ -62,6 +62,7 @@
 - `opportunities.parser_version`、`extraction_confidence`、`extraction_gaps`：记录当前 `jd_rules_v2`、规则初始置信度和仍待核对字段，不把规则输出冒充 AI。
 - `import_my_internship_jd`：authenticated-only、`SECURITY INVOKER` 原子 RPC。用户点击保存构成显式追踪确认；事务内创建候选证据与实习长期记录，追加时间线/审计，且绝不执行投递。
 - 同一用户与 JD 指纹先取得事务级 advisory lock，再查重和写入；重复请求返回现有 `opportunity_id`，不重复建立候选、岗位或时间线。
+- `import_my_jd`（2026-11-12，#11）：在上述约束不变的前提下增加 `target_track`（仅 `internship` / `graduate`），实习页与秋招页共用；审计动作为 `<track>.jd_import`。指纹仍按用户跨两条线唯一，重复粘贴返回原记录及其所属求职线。原 `import_my_internship_jd` 保留不改，供兼容。
 
 ## 私有简历库与 AI 分析
 
