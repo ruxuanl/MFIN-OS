@@ -123,3 +123,10 @@ M0 不安装产品依赖，不运行数据库，不连接外部账号。GitHub A
 - 隔离 Test 整段迁移先编译回滚，再正式应用；合成回滚事务覆盖建议默认关闭、批准不隐式启用、权限门、运行幂等、部分覆盖、RPC 权限矩阵和候选零变化。
 - 事务后 `job_sources`、`job_source_runs`、`private.job_source_cursors` 均为 0；Security Advisor 无新增公开表/RLS/函数 WARN。
 - 当前不验收真实抓取、字段投影、跨来源去重或候选创建；这些必须在 D14-D16 确认后以单独切片验证。
+
+## 本地数据库集成测试（2026-11-12，#8）
+
+- `tests/db/supabase-stub.sql` 提供 auth、storage、vault、cron、net 与角色的最小替身，使全部迁移可在普通 PostgreSQL 16 上按顺序应用；替身只用于测试，不代表 Supabase 的真实实现或安全语义。
+- `pnpm test:db`（需 `MFIN_TEST_PG=1`）：从空库应用全部迁移，执行合成种子两次验证幂等，以 `authenticated` 角色经 RLS 读取，执行清除并确认残留为 0，再验证 `import_my_jd` 的创建、跨线去重与非法 track 拒绝。
+- 托管环境特有行为（Auth Hook、Storage 签名链接、pg_cron 实际调度、pg_net 外呼）仍需在隔离 Test 项目验证。
+

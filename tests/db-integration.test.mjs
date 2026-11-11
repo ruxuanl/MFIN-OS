@@ -1,0 +1,54 @@
+// Optional integration tests against a throwaway local PostgreSQL.
+// Skipped unless MFIN_TEST_PG=1 and libpq env vars (PGHOST, PGPORT, PGUSER) point at a
+// disposable server. They apply tests/db/supabase-stub.sql plus every migration to a
+// fresh database, then exercise the seed and the track-aware JD import as a real user.
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import { buildSeedData, buildSeedSql, buildUnseedSql } from "../scripts/test-env/seed-data.mjs";
+
+const enabled = process.env.MFIN_TEST_PG === "1";
+const db = "mfin_integration";
+const user = "33333333-3333-4333-8333-333333333333";
+
+function psql(sql) {
+  return execFileSync("psql", ["-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", "-d", db, "-c", sql], { encoding: "utf8" }).trim();
+}
+function psqlFile(file) {
+  execFileSync("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", db, "-f", file], { stdio: "pipe" });
+}
+function asUser(sql) {
+  return psql(`begin; set local role authenticated; select set_config('request.jwt.claims', '{"sub":"${user}","role":"authenticated"}', true) is null; ${sql}; rollback;`)
+    .split("\n").slice(1).join("\n");
+}
+
+test("migrations, seed and JD import on a real PostgreSQL", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  execFileSync("bash", [path.join("tests", "db", "apply-migrations.sh"), db], { stdio: "pipe" });
+  psql(`insert into auth.users (id, email) values ('${user}', 'synthetic@example.invalid')`);
+
+  const dir = mkdtempSync(path.join(tmpdir(), "mfin-seed-"));
+  const data = buildSeedData();
+  writeFileSync(path.join(dir, "seed.sql"), buildSeedSql(data));
+  writeFileSync(path.join(dir, "unseed.sql"), buildUnseedSql(data));
+
+  psqlFile(path.join(dir, "seed.sql"));
+  psqlFile(path.join(dir, "seed.sql"));
+  assert.equal(psql("select count(*) from public.opportunities"), String(data.opportunities.length), "seed is idempotent");
+  assert.equal(asUser("select count(*) from public.opportunities"), String(data.opportunities.length), "owner can read via RLS");
+
+  psqlFile(path.join(dir, "unseed.sql"));
+  assert.equal(psql(`select (select count(*) from public.opportunities) + (select count(*) from public.opportunity_candidates)
+    + (select count(*) from public.gmail_messages) + (select count(*) from public.calendar_events)
+    + (select count(*) from public.timeline_entries) + (select count(*) from public.external_connections)`), "0", "cleanup leaves nothing");
+
+  const args = `'示例资本','Graduate Analyst',null,'上海',null,null,null,'${"合成 JD 正文 ".repeat(5)}','研究支持','熟悉 Excel',null,'jd_rules_v2',0.7,array['部门'],'${"c".repeat(64)}','evaluation',null`;
+  const first = asUser(`select created, opportunity_track from public.import_my_jd('graduate', ${args})`);
+  assert.equal(first, "t|graduate");
+  const duplicate = asUser(`select public.import_my_jd('graduate', ${args}); select created, opportunity_track from public.import_my_jd('internship', ${args})`);
+  assert.match(duplicate, /f\|graduate$/, "duplicate JD returns the original track");
+  assert.throws(() => asUser(`select public.import_my_jd('bogus', ${args})`), /invalid_jd_import/);
+});
