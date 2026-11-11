@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from "react";
 
-import { importInternshipJd } from "@/app/(app)/workspace-actions";
+import { importOpportunityJd } from "@/app/(app)/workspace-actions";
 import { SubmitButton } from "@/components/operation-feedback";
 import { maxInternshipJdLength, parseInternshipJd } from "@/lib/internships/jd-parser";
 
-export function InternshipJdImporter() {
+const trackLabels = { internship: "实习", graduate: "秋招" } as const;
+
+export function JdImporter({ track }: { track: "internship" | "graduate" }) {
+  const label = trackLabels[track];
   const [rawJd, setRawJd] = useState("");
   const extraction = useMemo(() => parseInternshipJd(rawJd), [rawJd]);
 
@@ -19,8 +22,9 @@ export function InternshipJdImporter() {
         <div><p>Quick capture</p><h2>粘贴 JD，自动建档</h2></div>
         <span className="phase-badge">本地规则 · 无需密钥</span>
       </div>
-      <p className="section-note">整段复制即可。系统会提取核心属性并直接建立一条“实习”长期记录；这是记录与追踪，不会替你投递。</p>
-      <form action={importInternshipJd} className="workspace-form jd-import-form">
+      <p className="section-note">整段复制即可。系统会提取核心属性并直接建立一条“{label}”长期记录；这是记录与追踪，不会替你投递。</p>
+      <form action={importOpportunityJd} className="workspace-form jd-import-form">
+        <input type="hidden" name="track" value={track} />
         <label className="jd-paste-field">
           <span>粘贴完整 JD</span>
           <textarea
@@ -58,7 +62,7 @@ export function InternshipJdImporter() {
           <input type="hidden" name="sourceUrl" value={extraction.sourceUrl ?? ""} />
         </div> : null}
 
-        <SubmitButton className="primary-button" disabled={!canSubmit} pendingLabel="正在识别并写入…">识别并保存到实习表</SubmitButton>
+        <SubmitButton className="primary-button" disabled={!canSubmit} pendingLabel="正在识别并写入…">识别并保存到{label}表</SubmitButton>
       </form>
     </section>
   );

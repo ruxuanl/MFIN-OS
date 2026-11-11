@@ -2953,6 +2953,33 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Json
       }
+      import_my_jd: {
+        Args: {
+          target_application_method: string
+          target_applied_at: string
+          target_company: string
+          target_deadline: string
+          target_department: string
+          target_extraction_confidence: number
+          target_extraction_gaps: string[]
+          target_jd_fingerprint: string
+          target_location: string
+          target_parser_version: string
+          target_posted_on: string
+          target_raw_jd: string
+          target_requirements: string
+          target_responsibilities: string
+          target_role_title: string
+          target_source_url: string
+          target_stage: string
+          target_track: string
+        }
+        Returns: {
+          created: boolean
+          opportunity_id: string
+          opportunity_track: string
+        }[]
+      }
       import_my_internship_jd:
         | {
             Args: {

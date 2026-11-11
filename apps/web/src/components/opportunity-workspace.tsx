@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { createCandidate, promoteCandidate, saveWorkspaceView } from "@/app/(app)/workspace-actions";
-import { InternshipJdImporter } from "@/components/internship-jd-importer";
+import { JdImporter } from "@/components/jd-importer";
 import { PageHeader } from "@/components/page-header";
 import { SubmitButton } from "@/components/operation-feedback";
 import { WorkspaceNotice } from "@/components/workspace-notice";
@@ -79,7 +79,7 @@ export async function OpportunityWorkspace({
         }))
       }} />
 
-      {track === "internship" ? <InternshipJdImporter /> : null}
+      <JdImporter track={track} />
 
       <section className="workspace-section candidate-section">
         <div className="workspace-section-heading">
