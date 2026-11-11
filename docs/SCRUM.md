@@ -82,21 +82,13 @@ mock 模式使用虚构身份，所有数据为空，只能检查界面，不能
 
 ### 7.3 连接自己的 Test 环境
 
-1. 在 Supabase 创建新项目，按文件名顺序应用 `supabase/migrations/` 下全部迁移。
-2. 在 Supabase Auth 启用 Google 登录，并把自己的登录邮箱写入单用户白名单（只保存 SHA-256 摘要）。在 SQL Editor 执行，邮箱换成自己的：
+按 `docs/RUNBOOKS/test-environment.md` 操作，概要：
 
-   ```sql
-   insert into private.auth_signup_allowlist (email_hash)
-   values (pg_catalog.sha256(pg_catalog.convert_to(lower(trim('you@example.com')), 'UTF8')));
-   ```
-
-   然后在 Auth Hooks 中把 Before User Created 指向 `public.before_user_created_single_user`。数据库只允许一个用户，必须使用空项目。
-3. 在 Google Cloud 创建 OAuth Web Client，回调地址加入：
-   - `https://<项目 ref>.supabase.co/auth/v1/callback`
-   - `http://localhost:3000/api/calendar/oauth/callback`
-   - `http://localhost:3000/api/gmail/oauth/callback`
-4. 参考根目录 `.env.example` 填写 `apps/web/.env.local`，不要设置 `AUTH_MODE=mock`。
-5. 灌入合成数据（见 Sprint 1 的合成数据 issue），不要导入真实邮件、简历或 JD。
+1. 新建空的 Supabase 项目。
+2. 运行 `pnpm test-env:bootstrap`（设置 `MFIN_ALLOWED_EMAIL` 后会一并生成白名单语句），把生成的 `work/test-env/bootstrap.sql` 在 SQL Editor 执行。
+3. 启用 Before User Created Hook 与 Google 登录，配置 OAuth 回调。
+4. 按 `.env.example` 填写 `apps/web/.env.local`，不要设置 `AUTH_MODE=mock`。
+5. 灌入合成数据（#8），不要导入真实邮件、简历或 JD。
 
 ### 7.4 启动
 

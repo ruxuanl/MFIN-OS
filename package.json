@@ -15,8 +15,9 @@
     "governance:check": "node scripts/check-governance.mjs",
     "lint": "pnpm governance:check && pnpm --dir apps/web lint",
     "typecheck": "pnpm --dir apps/web typecheck",
-    "static:check": "node --check scripts/check-format.mjs && node --check scripts/check-governance.mjs && node --check tests/governance.test.mjs && node --check tests/ai-adapter-boundary.test.mjs && node --check tests/m2-migration.test.mjs && node --check tests/m3-migration.test.mjs && node --check tests/m4-migration.test.mjs && node --check tests/m5-migration.test.mjs && node --check tests/m6-migration.test.mjs && node --check tests/m7-migration.test.mjs && node --check tests/gmail-recurring-sync-migration.test.mjs && node --check tests/job-discovery-v0-migration.test.mjs && node --check tests/production-auth-migration.test.mjs && node --check tests/resume-ai-migration.test.mjs",
+    "static:check": "node --check scripts/check-format.mjs && node --check scripts/check-governance.mjs && node --check tests/governance.test.mjs && node --check tests/ai-adapter-boundary.test.mjs && node --check tests/m2-migration.test.mjs && node --check tests/m3-migration.test.mjs && node --check tests/m4-migration.test.mjs && node --check tests/m5-migration.test.mjs && node --check tests/m6-migration.test.mjs && node --check tests/m7-migration.test.mjs && node --check tests/gmail-recurring-sync-migration.test.mjs && node --check tests/job-discovery-v0-migration.test.mjs && node --check tests/production-auth-migration.test.mjs && node --check tests/resume-ai-migration.test.mjs && node --check scripts/test-env/build-bootstrap-sql.mjs && node --check tests/test-env-bootstrap.test.mjs",
     "test": "node --test tests/*.test.mjs && pnpm --dir apps/web test",
-    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm static:check && pnpm test && pnpm build"
+    "ci": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm static:check && pnpm test && pnpm build",
+    "test-env:bootstrap": "node scripts/test-env/build-bootstrap-sql.mjs"
   }
 }
