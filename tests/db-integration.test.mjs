@@ -161,3 +161,10 @@ test("candidate batch: partial failure, idempotence, per-item audit, privacy loc
       on conflict (user_id) do update set is_locked = true, locked_at = now();
     set local role authenticated; select public.decide_my_candidates(${arr([ids[0]])}, 'later')`), /privacy_locked/);
 });
+
+test("search gold set: v1 recall@5 >= 0.85 and beats the includes() baseline", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, async () => {
+  const { runSearchEval } = await import("../scripts/search-eval/run.mjs");
+  const { v1, baseline } = runSearchEval({ db, applyMigrations: false });
+  assert.ok(v1.recallAt5 >= 0.85, `recall@5 ${v1.recallAt5}`);
+  assert.ok(v1.mrr > baseline.mrr && v1.recallAt5 > baseline.recallAt5);
+});

@@ -1,0 +1,612 @@
+{
+  "version": "search_gold_v1",
+  "note": "All documents are fictional (synthetic). Queries marked expectMiss exercise cross-lingual intent that keyword search cannot satisfy; they stay in the denominator.",
+  "documents": [
+    {
+      "key": "o1",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Contoso Capital",
+      "role_title": "Summer Analyst",
+      "department": "Investment Banking",
+      "location": "香港",
+      "requirements": "Python；Excel 财务建模；粤语",
+      "responsibilities": "参与并购交易执行与估值分析"
+    },
+    {
+      "key": "o2",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Fabrikam Securities",
+      "role_title": "Equity Research Intern",
+      "department": "Equity Research",
+      "location": "上海",
+      "requirements": "Wind；行业研究；撰写研报",
+      "responsibilities": "覆盖新能源行业"
+    },
+    {
+      "key": "o3",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "青岚资本（示例）",
+      "role_title": "投行实习生",
+      "department": "投资银行部",
+      "location": "北京",
+      "requirements": "CPA 或 CFA 优先；熟练 Excel",
+      "responsibilities": "IPO 项目尽调与底稿整理"
+    },
+    {
+      "key": "o4",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "澄海证券（示例）",
+      "role_title": "行业研究员（应届）",
+      "department": "研究所",
+      "location": "深圳",
+      "requirements": "半导体行业研究经验；Python 数据处理",
+      "responsibilities": "跟踪半导体产业链"
+    },
+    {
+      "key": "o5",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "Northwind Partners",
+      "role_title": "Graduate Analyst",
+      "department": "Asset Management",
+      "location": "Singapore",
+      "requirements": "SQL; portfolio analytics; English fluency",
+      "responsibilities": "Support portfolio construction and risk reporting"
+    },
+    {
+      "key": "o6",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Woodgrove Advisory",
+      "role_title": "Off-cycle Intern",
+      "department": "Restructuring",
+      "location": "Hong Kong · Hybrid",
+      "requirements": "Financial modelling; interest in restructuring",
+      "responsibilities": "Debt restructuring advisory work"
+    },
+    {
+      "key": "o7",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "Litware Bank",
+      "role_title": "Analyst Programme",
+      "department": "Global Markets",
+      "location": "香港",
+      "requirements": "Fixed income knowledge; VBA",
+      "responsibilities": "Rates trading desk rotation"
+    },
+    {
+      "key": "o8",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "远帆投资（示例）",
+      "role_title": "管培生",
+      "department": "资产管理部",
+      "location": "上海",
+      "requirements": "量化背景；Python 或 R",
+      "responsibilities": "量化策略研究与回测"
+    },
+    {
+      "key": "o9",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Tailspin Research",
+      "role_title": "Research Intern",
+      "department": "Global Research",
+      "location": "北京",
+      "requirements": "ESG research; data visualization",
+      "responsibilities": "ESG 评级数据整理"
+    },
+    {
+      "key": "o10",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "Proseware Asset Management",
+      "role_title": "Investment Analyst",
+      "department": "Private Equity",
+      "location": "深圳",
+      "requirements": "LBO modelling; 普通话 and English",
+      "responsibilities": "私募股权投资项目筛选"
+    },
+    {
+      "key": "o11",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "云杉研究所（示例）",
+      "role_title": "研究实习生",
+      "department": "宏观研究",
+      "location": "北京",
+      "requirements": "宏观经济；Stata",
+      "responsibilities": "撰写宏观周报"
+    },
+    {
+      "key": "o12",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Wingtip Investments",
+      "role_title": "Summer Analyst",
+      "department": "Investment Banking",
+      "location": "Singapore",
+      "requirements": "M&A interest; PowerPoint",
+      "responsibilities": "Pitch book preparation"
+    },
+    {
+      "key": "o13",
+      "type": "opportunity",
+      "track": "graduate",
+      "company": "Contoso Capital",
+      "role_title": "Graduate Analyst",
+      "department": "Equity Research",
+      "location": "香港",
+      "requirements": "Bloomberg；消费行业研究",
+      "responsibilities": "Consumer sector coverage"
+    },
+    {
+      "key": "o14",
+      "type": "opportunity",
+      "track": "internship",
+      "company": "Fabrikam Securities",
+      "role_title": "量化研究实习生",
+      "department": "量化投资部",
+      "location": "上海",
+      "requirements": "C++；Python；机器学习",
+      "responsibilities": "高频因子挖掘"
+    },
+    {
+      "key": "c1",
+      "type": "candidate",
+      "track": "internship",
+      "company": "Litware Bank",
+      "role_title": "Risk Intern",
+      "location": "香港",
+      "source_summary": "风险管理部 · 信用风险模型 · 校园招聘官网"
+    },
+    {
+      "key": "c2",
+      "type": "candidate",
+      "track": "internship",
+      "company": "Northwind Partners",
+      "role_title": "Data Analyst Intern",
+      "location": "Singapore",
+      "source_summary": "SQL dashboard; Tableau"
+    },
+    {
+      "key": "c3",
+      "type": "candidate",
+      "track": "internship",
+      "company": "青岚资本（示例）",
+      "role_title": "行研实习生",
+      "location": "上海",
+      "source_summary": "消费行业研究 · 内推渠道"
+    },
+    {
+      "key": "c4",
+      "type": "candidate",
+      "track": "graduate",
+      "company": "Tailspin Research",
+      "role_title": "ESG Analyst",
+      "location": "香港",
+      "source_summary": "ESG integration; sustainability reporting"
+    },
+    {
+      "key": "c5",
+      "type": "candidate",
+      "track": "internship",
+      "company": "澄海证券（示例）",
+      "role_title": "固收实习生",
+      "location": "深圳",
+      "source_summary": "固定收益 · 债券研究"
+    },
+    {
+      "key": "c6",
+      "type": "candidate",
+      "track": "internship",
+      "company": "Woodgrove Advisory",
+      "role_title": "Transaction Services Intern",
+      "location": "北京",
+      "source_summary": "财务尽职调查 · 四大背景优先"
+    },
+    {
+      "key": "g1",
+      "type": "gmail",
+      "subject": "Contoso Capital 面试邀请：Summer Analyst 第一轮",
+      "sender_summary": "Contoso Capital 校园招聘",
+      "summary": "邀请参加视频面试，请在 3 天内确认时间",
+      "action_title": "确认面试时间"
+    },
+    {
+      "key": "g2",
+      "type": "gmail",
+      "subject": "Online assessment invitation - Fabrikam Securities",
+      "sender_summary": "Fabrikam HR",
+      "summary": "Complete the numerical test within 5 days",
+      "action_title": "完成在线测评"
+    },
+    {
+      "key": "g3",
+      "type": "gmail",
+      "subject": "澄海证券（示例）笔试通知",
+      "sender_summary": "澄海证券招聘组",
+      "summary": "行业研究员笔试将于周六上午举行，请携带证件",
+      "action_title": "参加笔试"
+    },
+    {
+      "key": "g4",
+      "type": "gmail",
+      "subject": "Thank you for your application - Litware Bank",
+      "sender_summary": "Litware Bank Graduate Recruitment",
+      "summary": "We have received your application to the Analyst Programme",
+      "action_title": null
+    },
+    {
+      "key": "g5",
+      "type": "gmail",
+      "subject": "青岚资本（示例）offer 通知",
+      "sender_summary": "青岚资本 HR",
+      "summary": "恭喜获得投行实习生 offer，请于一周内回复",
+      "action_title": "回复 offer"
+    },
+    {
+      "key": "g6",
+      "type": "gmail",
+      "subject": "Northwind Partners - application unsuccessful",
+      "sender_summary": "Northwind Talent",
+      "summary": "We regret that we will not progress your Graduate Analyst application",
+      "action_title": null
+    },
+    {
+      "key": "g7",
+      "type": "gmail",
+      "subject": "Proseware superday schedule",
+      "sender_summary": "Proseware Campus",
+      "summary": "Superday on Friday: three back-to-back interviews, case study included",
+      "action_title": "准备 superday"
+    },
+    {
+      "key": "g8",
+      "type": "gmail",
+      "subject": "云杉研究所（示例）实习材料补交",
+      "sender_summary": "云杉研究所人事",
+      "summary": "请补交成绩单与推荐信",
+      "action_title": "补交成绩单"
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "lang": "zh",
+      "query": "面试邀请",
+      "relevant": [
+        "g1"
+      ]
+    },
+    {
+      "id": "q02",
+      "lang": "zh",
+      "query": "笔试",
+      "relevant": [
+        "g3"
+      ]
+    },
+    {
+      "id": "q03",
+      "lang": "zh",
+      "query": "量化",
+      "relevant": [
+        "o8",
+        "o14"
+      ]
+    },
+    {
+      "id": "q04",
+      "lang": "zh",
+      "query": "半导体",
+      "relevant": [
+        "o4"
+      ]
+    },
+    {
+      "id": "q05",
+      "lang": "zh",
+      "query": "投行实习生",
+      "relevant": [
+        "o3",
+        "g5"
+      ]
+    },
+    {
+      "id": "q06",
+      "lang": "zh",
+      "query": "宏观研究",
+      "relevant": [
+        "o11"
+      ]
+    },
+    {
+      "id": "q07",
+      "lang": "zh",
+      "query": "消费行业研究",
+      "relevant": [
+        "o13",
+        "c3"
+      ]
+    },
+    {
+      "id": "q08",
+      "lang": "zh",
+      "query": "尽职调查",
+      "relevant": [
+        "c6"
+      ]
+    },
+    {
+      "id": "q09",
+      "lang": "zh",
+      "query": "固定收益",
+      "relevant": [
+        "c5"
+      ]
+    },
+    {
+      "id": "q10",
+      "lang": "zh",
+      "query": "成绩单",
+      "relevant": [
+        "g8"
+      ]
+    },
+    {
+      "id": "q11",
+      "lang": "zh",
+      "query": "私募股权",
+      "relevant": [
+        "o10"
+      ]
+    },
+    {
+      "id": "q12",
+      "lang": "zh",
+      "query": "新能源",
+      "relevant": [
+        "o2"
+      ]
+    },
+    {
+      "id": "q13",
+      "lang": "zh",
+      "query": "信用风险",
+      "relevant": [
+        "c1"
+      ]
+    },
+    {
+      "id": "q14",
+      "lang": "zh",
+      "query": "资产管理部",
+      "relevant": [
+        "o8"
+      ]
+    },
+    {
+      "id": "q15",
+      "lang": "zh",
+      "query": "并购",
+      "relevant": [
+        "o1"
+      ]
+    },
+    {
+      "id": "q16",
+      "lang": "en",
+      "query": "summer analyst",
+      "relevant": [
+        "o1",
+        "o12",
+        "g1"
+      ]
+    },
+    {
+      "id": "q17",
+      "lang": "en",
+      "query": "online assessment",
+      "relevant": [
+        "g2"
+      ]
+    },
+    {
+      "id": "q18",
+      "lang": "en",
+      "query": "restructuring",
+      "relevant": [
+        "o6"
+      ]
+    },
+    {
+      "id": "q19",
+      "lang": "en",
+      "query": "ESG",
+      "relevant": [
+        "o9",
+        "c4"
+      ]
+    },
+    {
+      "id": "q20",
+      "lang": "en",
+      "query": "portfolio",
+      "relevant": [
+        "o5"
+      ]
+    },
+    {
+      "id": "q21",
+      "lang": "en",
+      "query": "superday",
+      "relevant": [
+        "g7"
+      ]
+    },
+    {
+      "id": "q22",
+      "lang": "en",
+      "query": "LBO",
+      "relevant": [
+        "o10"
+      ]
+    },
+    {
+      "id": "q23",
+      "lang": "en",
+      "query": "fixed income",
+      "relevant": [
+        "o7"
+      ]
+    },
+    {
+      "id": "q24",
+      "lang": "en",
+      "query": "SQL",
+      "relevant": [
+        "o5",
+        "c2"
+      ]
+    },
+    {
+      "id": "q25",
+      "lang": "en",
+      "query": "pitch book",
+      "relevant": [
+        "o12"
+      ]
+    },
+    {
+      "id": "q26",
+      "lang": "en",
+      "query": "Bloomberg",
+      "relevant": [
+        "o13"
+      ]
+    },
+    {
+      "id": "q27",
+      "lang": "en",
+      "query": "unsuccessful",
+      "relevant": [
+        "g6"
+      ]
+    },
+    {
+      "id": "q28",
+      "lang": "en",
+      "query": "Tableau",
+      "relevant": [
+        "c2"
+      ]
+    },
+    {
+      "id": "q29",
+      "lang": "en",
+      "query": "machine learning",
+      "relevant": [
+        "o14"
+      ],
+      "expectMiss": true
+    },
+    {
+      "id": "q30",
+      "lang": "en",
+      "query": "graduate analyst",
+      "relevant": [
+        "o5",
+        "o13",
+        "g6"
+      ]
+    },
+    {
+      "id": "q31",
+      "lang": "mixed",
+      "query": "Contoso 面试",
+      "relevant": [
+        "g1"
+      ]
+    },
+    {
+      "id": "q32",
+      "lang": "mixed",
+      "query": "Python 量化",
+      "relevant": [
+        "o8",
+        "o14"
+      ]
+    },
+    {
+      "id": "q33",
+      "lang": "mixed",
+      "query": "香港 Summer Analyst",
+      "relevant": [
+        "o1"
+      ]
+    },
+    {
+      "id": "q34",
+      "lang": "mixed",
+      "query": "Fabrikam 测评",
+      "relevant": [
+        "g2"
+      ]
+    },
+    {
+      "id": "q35",
+      "lang": "mixed",
+      "query": "ESG 评级",
+      "relevant": [
+        "o9"
+      ]
+    },
+    {
+      "id": "q36",
+      "lang": "mixed",
+      "query": "Excel 财务建模",
+      "relevant": [
+        "o1"
+      ]
+    },
+    {
+      "id": "q37",
+      "lang": "mixed",
+      "query": "IPO 尽调",
+      "relevant": [
+        "o3"
+      ]
+    },
+    {
+      "id": "q38",
+      "lang": "mixed",
+      "query": "superday 准备",
+      "relevant": [
+        "g7"
+      ]
+    },
+    {
+      "id": "q39",
+      "lang": "mixed",
+      "query": "offer 回复",
+      "relevant": [
+        "g5"
+      ]
+    },
+    {
+      "id": "q40",
+      "lang": "mixed",
+      "query": "量化 backtest",
+      "relevant": [
+        "o8"
+      ],
+      "expectMiss": true
+    }
+  ]
+}
