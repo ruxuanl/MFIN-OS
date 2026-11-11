@@ -20,7 +20,7 @@
 | | `status:blocked` | 需要决策、外部条件或依赖未完成 |
 | 领域 | `area:infra`、`area:perf`、`area:search`、`area:apply`、`area:workflow`、`area:source` | 所属模块 |
 
-没有标签权限的协作者可以用标题前缀识别，例如 `[S1][search]` 表示 Sprint 1、检索领域。
+没有标签权限的协作者可以用标题前缀识别，例如 `[S1][search]` 表示 Sprint 1、检索领域；在 issue 下评论，由有权限的协作者改标签。
 
 ## 3. 领取与交付流程
 
@@ -114,4 +114,4 @@ mock 模式使用虚构身份，所有数据为空，只能检查界面，不能
 - Sprint 为期一周，Sprint 1 从 2026-11-12 开始。
 - Sprint 开始时由产品负责人确认本 Sprint 的 issue 和目标；结束时验收已合并的 issue，未完成的移入下一 Sprint 或 `backlog`。
 - Sprint 目标和范围以 GitHub issue 为准；编号索引见 `docs/adr/0009-job-search-enhancement-plan.md` 第 6 节，不在本文件重复维护任务清单。
-- 在仓库维护者创建标签之前，以标题前缀 `[S1]`、`[S2]`、`[Backlog]` 区分 Sprint。
+- 标签已在仓库创建并应用到 #7–#24；标题前缀 `[S1]`、`[S2]`、`[Backlog]` 与 Sprint 标签保持一致。
