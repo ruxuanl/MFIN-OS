@@ -231,6 +231,108 @@ export type Database = {
         }
         Relationships: []
       }
+      application_package_items: {
+        Row: {
+          created_at: string
+          done: boolean
+          done_at: string | null
+          evidence: string | null
+          id: string
+          item_key: string
+          label: string
+          package_id: string
+          position: number
+          required: boolean
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          evidence?: string | null
+          id?: string
+          item_key: string
+          label: string
+          package_id: string
+          position: number
+          required?: boolean
+          source: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          evidence?: string | null
+          id?: string
+          item_key?: string
+          label?: string
+          package_id?: string
+          position?: number
+          required?: boolean
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      application_packages: {
+        Row: {
+          created_at: string
+          deadline_action_id: string | null
+          id: string
+          official_apply_url: string | null
+          opportunity_id: string
+          recommendation_reason: string | null
+          recommended_resume_version_id: string | null
+          rule_version: string
+          selected_at: string | null
+          selected_resume_version_id: string | null
+          status: string
+          suggested_start_on: string | null
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          deadline_action_id?: string | null
+          id?: string
+          official_apply_url?: string | null
+          opportunity_id: string
+          recommendation_reason?: string | null
+          recommended_resume_version_id?: string | null
+          rule_version: string
+          selected_at?: string | null
+          selected_resume_version_id?: string | null
+          status?: string
+          suggested_start_on?: string | null
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          deadline_action_id?: string | null
+          id?: string
+          official_apply_url?: string | null
+          opportunity_id?: string
+          recommendation_reason?: string | null
+          recommended_resume_version_id?: string | null
+          rule_version?: string
+          selected_at?: string | null
+          selected_resume_version_id?: string | null
+          status?: string
+          suggested_start_on?: string | null
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       audit_event_evidence: {
         Row: {
           audit_event_id: string
@@ -2979,6 +3081,33 @@ export type Database = {
           opportunity_id: string
           opportunity_track: string
         }[]
+      }
+      confirm_my_application_package_resume: {
+        Args: { target_package_id: string; target_resume_version_id: string }
+        Returns: undefined
+      }
+      create_my_application_package: {
+        Args: {
+          target_items: Json
+          target_official_apply_url: string
+          target_opportunity_id: string
+          target_recommendation_reason: string
+          target_recommended_resume_version_id: string
+          target_rule_version: string
+          target_suggested_start_on: string
+        }
+        Returns: {
+          created: boolean
+          package_id: string
+        }[]
+      }
+      set_my_application_package_item: {
+        Args: { target_done: boolean; target_item_id: string }
+        Returns: undefined
+      }
+      set_my_application_package_status: {
+        Args: { target_package_id: string; target_status: string }
+        Returns: undefined
       }
       import_my_internship_jd:
         | {

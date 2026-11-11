@@ -52,3 +52,25 @@ test("migrations, seed and JD import on a real PostgreSQL", { skip: !enabled && 
   assert.match(duplicate, /f\|graduate$/, "duplicate JD returns the original track");
   assert.throws(() => asUser(`select public.import_my_jd('bogus', ${args})`), /invalid_jd_import/);
 });
+
+test("application package: create once, checklist, status rules, privacy lock", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const jd = `'示例资本','Graduate Analyst',null,'上海',current_date + 5,null,'https://careers.sample.example/1','${"合成 JD 正文 ".repeat(5)}','研究支持','熟悉 Excel',null,'jd_rules_v2',0.7,array[]::text[],'${"e".repeat(64)}','evaluation',null`;
+  const items = `'[{"key":"cv","label":"简历","required":true,"source":"default"},{"key":"transcript","label":"成绩单","required":true,"source":"jd_rule","evidence":"attach transcript"}]'::jsonb`;
+  const setup = `create temp table t as select opportunity_id from public.import_my_jd('graduate', ${jd});
+    create temp table p as select * from public.create_my_application_package((select opportunity_id from t), ${items}, null, 'r', 'https://careers.sample.example/1', current_date + 1, 'package_rules_v1')`;
+  const result = asUser(`${setup};
+    select (select created from p), (select created from public.create_my_application_package((select opportunity_id from t), '[]'::jsonb, null, null, null, null, 'package_rules_v1')),
+      (select count(*) from public.application_package_items), (select priority from public.actions limit 1)`);
+  assert.equal(result.split("\n").pop(), "t|f|2|high", "created once, items stored, deadline action is high priority");
+
+  const blocked = () => asUser(`${setup}; select public.set_my_application_package_status((select package_id from p), 'submitted_recorded')`);
+  assert.throws(blocked, /invalid_package_status/, "submitted_recorded is reserved for #14");
+  assert.throws(() => asUser(`${setup}; update public.application_packages set status = 'ready'`), /permission denied/, "no direct writes");
+
+  const locked = () => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked) values ('${user}', true)
+      on conflict (user_id) do update set is_locked = true;
+    set local role authenticated;
+    select public.set_my_application_package_status((select package_id from p), 'ready')`);
+  assert.throws(locked, /privacy_locked/, "privacy lock blocks package writes");
+});

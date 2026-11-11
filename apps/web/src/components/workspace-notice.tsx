@@ -30,6 +30,10 @@ const messages: Record<string, string> = {
   ai_failed: "AI 分析未完成，JD 和简历记录均未被修改。",
   ai_completed: "AI 分析已完成并按当前 JD 与简历版本归档。",
   ai_cached: "相同 JD 与简历版本已有分析，已直接复用缓存。",
+  package_created: "投递包已创建；材料清单与截止行动已生成，系统没有执行投递。",
+  package_failed: "投递包操作失败，请刷新后重试。",
+  package_resume_confirmed: "已确认本次申请使用的简历版本。",
+  package_status_saved: "投递包状态已更新。",
   preview: "隔离预览模式不会写入业务数据。"
 };
 
