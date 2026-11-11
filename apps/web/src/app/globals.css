@@ -786,3 +786,7 @@ a[aria-busy="true"] { pointer-events: none; }
 .snapshot-facts dd { margin: 0; }
 .snapshot-history { margin: 8px 0 0; padding-left: 18px; color: var(--ink-faint); }
 @media (max-width: 720px) { .snapshot-facts { grid-template-columns: 1fr; } }
+
+/* List pagination (#10) */
+.pagination-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-top: 14px; color: var(--ink-faint); font-size: calc(10px + var(--workspace-font-boost, 0px)); }
+.pagination-row > :last-child { justify-self: end; }

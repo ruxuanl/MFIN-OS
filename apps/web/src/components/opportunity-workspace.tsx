@@ -32,6 +32,17 @@ function viewHref(basePath: string, view: SavedView) {
   return query ? `${basePath}?${query}` : basePath;
 }
 
+function pageHref(basePath: string, filters: OpportunityFilters, page: number) {
+  const params = new URLSearchParams();
+  if (filters.query) params.set("query", filters.query);
+  if (filters.stage) params.set("stage", filters.stage);
+  if (filters.state && filters.state !== "active") params.set("state", filters.state);
+  if (filters.sort && filters.sort !== "updated") params.set("sort", filters.sort);
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
 export async function OpportunityWorkspace({
   track,
   searchParams
@@ -48,7 +59,8 @@ export async function OpportunityWorkspace({
     state: first(search.state) === "archived" ? "archived" : "active",
     sort: ["deadline", "company"].includes(first(search.sort) ?? "")
       ? first(search.sort) as OpportunityFilters["sort"]
-      : "updated"
+      : "updated",
+    page: Math.max(1, Number.parseInt(first(search.page) ?? "1", 10) || 1)
   };
   const data = await getOpportunityWorkspace(user, track, filters);
   const title = track === "internship" ? "实习" : "秋招";
@@ -136,7 +148,7 @@ export async function OpportunityWorkspace({
       <section className="workspace-section">
         <div className="workspace-section-heading">
           <div><p>Long-term table</p><h2>{title}长期表</h2></div>
-          <div className="heading-badges"><span className="count-chip">{data.opportunities.length}</span>{data.pendingConflicts ? <span className="conflict-chip">{data.pendingConflicts} 个冲突</span> : null}</div>
+          <div className="heading-badges"><span className="count-chip">{data.totalOpportunities}</span>{data.pendingConflicts ? <span className="conflict-chip">{data.pendingConflicts} 个冲突</span> : null}</div>
         </div>
 
         <form className="filter-bar" method="get">
@@ -187,6 +199,13 @@ export async function OpportunityWorkspace({
             </table>
           </div>
         )}
+        {data.totalOpportunities > data.pageSize ? (
+          <nav className="pagination-row" aria-label="分页">
+            {data.page > 1 ? <Link className="quiet-link" href={pageHref(basePath, filters, data.page - 1)}>← 上一页</Link> : <span />}
+            <span>第 {data.page} / {Math.ceil(data.totalOpportunities / data.pageSize)} 页 · 共 {data.totalOpportunities} 条</span>
+            {data.page * data.pageSize < data.totalOpportunities ? <Link className="quiet-link" href={pageHref(basePath, filters, data.page + 1)}>下一页 →</Link> : <span />}
+          </nav>
+        ) : null}
       </section>
     </div>
   );
