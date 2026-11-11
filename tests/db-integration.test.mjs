@@ -131,3 +131,33 @@ test("search v1: Chinese substrings, AND terms, filters, trigger upkeep, privacy
   assert.throws(locked("select public.rebuild_my_search_documents()"), /privacy_locked/);
   assert.throws(() => psql("begin; set local role anon; select * from public.search_my_workspace('投行'); rollback"), /permission denied/);
 });
+
+test("candidate batch: partial failure, idempotence, per-item audit, privacy lock", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const ids = ["c1000000-0000-4000-8000-000000000001", "c1000000-0000-4000-8000-000000000002", "c1000000-0000-4000-8000-000000000003"];
+  const missing = "c1000000-0000-4000-8000-0000000000ff";
+  const setup = `reset role; insert into public.opportunity_candidates (id, user_id, track, company, role_title) values
+    ${ids.map((id, index) => `('${id}', '${user}', 'graduate', '批量示例${index}', '分析师')`).join(", ")};
+    set local role authenticated`;
+  const arr = (list) => `array[${list.map((id) => `'${id}'`).join(",")}]::uuid[]`;
+  const last = (sql) => asUser(`${setup}; ${sql}`).split("\n").pop();
+
+  assert.equal(last(`select string_agg(outcome || coalesce(':' || error_code, ''), ',' order by candidate_id) from public.decide_my_candidates(${arr([ids[0], ids[1], missing])}, 'later')`),
+    "updated,updated,failed:candidate_not_found", "one bad id does not roll back the others");
+  assert.equal(last(`select public.decide_my_candidates(${arr([ids[0]])}, 'later');
+    select string_agg(outcome, ',') from public.decide_my_candidates(${arr([ids[0]])}, 'later')`), "unchanged");
+  assert.equal(last(`select public.decide_my_candidates(${arr(ids)}, 'track');
+    select string_agg(outcome || coalesce(':' || error_code, ''), ',' order by candidate_id) from public.decide_my_candidates(${arr(ids)}, 'dismissed', '不匹配')`),
+    "failed:candidate_already_promoted,failed:candidate_already_promoted,failed:candidate_already_promoted");
+  assert.equal(last(`select public.decide_my_candidates(${arr(ids)}, 'apply'); select public.decide_my_candidates(${arr(ids)}, 'track');
+    select (select count(*) from public.opportunities where candidate_id = any(${arr(ids)})) || '|' ||
+      (select count(*) from public.audit_events where action = 'candidate.promote' and object_id = any(${arr(ids)}::text[]))`),
+    "3|3", "repeat promotion creates no duplicates");
+  assert.equal(last(`select public.decide_my_candidates(${arr(ids.slice(0, 2))}, 'dismissed', '地点不合适');
+    select (select count(*) from public.timeline_entries where event_type = 'decision_changed') || '|' ||
+      (select count(*) from public.audit_events where action = 'candidate.decide')`), "2|2");
+  assert.throws(() => asUser(`${setup}; select public.decide_my_candidates(${arr([ids[0]])}, 'dismissed')`), /dismiss_reason_required/);
+  assert.throws(() => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked, locked_at) values ('${user}', true, now())
+      on conflict (user_id) do update set is_locked = true, locked_at = now();
+    set local role authenticated; select public.decide_my_candidates(${arr([ids[0]])}, 'later')`), /privacy_locked/);
+});
