@@ -803,3 +803,14 @@ a[aria-busy="true"] { pointer-events: none; }
 .search-results small { color: var(--ink-faint); }
 .search-result-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--ink-faint); font-size: calc(10px + var(--workspace-font-boost, 0px)); }
 .search-rebuild { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+
+/* Candidate batch triage (#18) */
+.candidate-batch-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; }
+.candidate-batch-bar input[name="reason"] { min-width: 220px; flex: 1; }
+.candidate-select-all, .candidate-select { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-faint); font-size: calc(10px + var(--workspace-font-boost, 0px)); }
+.candidate-select { align-self: flex-end; margin-bottom: -4px; }
+.candidate-card > div:first-of-type > span { color: var(--ink-faint); font-size: calc(8px + var(--workspace-font-boost, 0px)); text-transform: uppercase; }
+.candidate-card.is-pending { opacity: 0.55; }
+.candidate-card.has-error { border-color: var(--danger, #b4534a); }
+.candidate-batch-failures { margin: -8px 0 16px; padding-left: 18px; color: var(--danger, #b4534a); font-size: calc(11px + var(--workspace-font-boost, 0px)); }
+.workspace-notice.notice-error { border-color: color-mix(in srgb, var(--danger, #b4534a) 42%, transparent); background: transparent; color: var(--danger, #b4534a); }

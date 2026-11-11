@@ -155,3 +155,10 @@
 - 由 `opportunities`、`opportunity_candidates`、`gmail_messages` 上的 AFTER 触发器维护；候选被提升或忽略、邮件被判为无关时删除对应文档。Gmail 只索引主题、发件人摘要、摘要和行动标题，不存在完整正文。
 - `search_my_workspace(query, types, track, stage, company, location, deadline_from, deadline_to, limit)`：空格分词（最多 8 个），每个词都必须出现（AND，大小写不敏感子串，两字中文可命中）；首词经 `pg_trgm` GIN 索引缩小候选；排序为标题命中 ×3 + 正文命中 + 标题首词加分。返回 160 字摘录与来源信息。
 - `rebuild_my_search_documents()` 只重建调用者本人的投影，不改动源表（不会更新 `updated_at`）。不使用向量（D28）。
+
+## 候选池批量处理（2026-11-12，#18）
+
+- `decide_my_candidates(ids, decision, reason)`：一次 1–100 个候选，`decision` 为 `track / apply / later / dismissed`；`dismissed` 必须带原因。每项在独立子事务中执行，返回 `promoted / updated / unchanged / failed` 与错误码，单项失败不回滚其他项。
+- 追踪与准备申请复用 `promote_opportunity_candidate`，重复执行不会产生重复岗位；已进入长期表的候选不能再改为稍后或不考虑。
+- 每个被修改的候选各写一条时间线（`decision_changed` 或 `promoted`）和一条审计（`candidate.decide` / `candidate.promote`，`externalAction: false`）；隐私锁开启时整批拒绝。
+- 界面：候选卡片多选，提交期间所选卡片乐观显示“处理中”；动作结束后以服务器数据为准，失败项恢复原状并逐项列出原因。

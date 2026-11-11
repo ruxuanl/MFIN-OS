@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { createCandidate, promoteCandidate, saveWorkspaceView } from "@/app/(app)/workspace-actions";
+import { createCandidate, saveWorkspaceView } from "@/app/(app)/workspace-actions";
+import { CandidatePool } from "@/components/candidate-pool";
 import { JdImporter } from "@/components/jd-importer";
 import { PageHeader } from "@/components/page-header";
 import { SubmitButton } from "@/components/operation-feedback";
@@ -116,33 +117,7 @@ export async function OpportunityWorkspace({
           </form>
         </details>
 
-        {data.candidates.length === 0 ? (
-          <p className="workspace-empty">尚无候选。M3 不会用假岗位填充，也不会自动把岗位塞进长期表。</p>
-        ) : (
-          <div className="candidate-grid">
-            {data.candidates.map((candidate) => (
-              <article className="candidate-card" key={candidate.id}>
-                <div><span>{candidate.location || "地点待确认"}</span><h3>{candidate.company}</h3><p>{candidate.role_title}</p></div>
-                {candidate.source_summary ? <small>{candidate.source_summary}</small> : null}
-                <div className="candidate-actions">
-                  <form action={promoteCandidate}>
-                    <input type="hidden" name="candidateId" value={candidate.id} />
-                    <input type="hidden" name="track" value={track} />
-                    <input type="hidden" name="intent" value="track" />
-                    <SubmitButton className="quiet-button" pendingLabel="正在加入…">追踪</SubmitButton>
-                  </form>
-                  <form action={promoteCandidate}>
-                    <input type="hidden" name="candidateId" value={candidate.id} />
-                    <input type="hidden" name="track" value={track} />
-                    <input type="hidden" name="intent" value="apply" />
-                    <SubmitButton className="primary-button" pendingLabel="正在加入…">准备申请</SubmitButton>
-                  </form>
-                </div>
-                <p className="boundary-caption">“准备申请”只进入准备阶段；系统不会投递或提交。</p>
-              </article>
-            ))}
-          </div>
-        )}
+        <CandidatePool track={track} candidates={data.candidates} />
       </section>
 
       <section className="workspace-section">

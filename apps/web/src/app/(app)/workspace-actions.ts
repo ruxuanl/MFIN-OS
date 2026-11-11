@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/session";
+import { parseBatchForm, summarize, type BatchItemResult, type BatchState } from "@/lib/candidates/batch";
 import { maxInternshipJdLength, parseInternshipJd } from "@/lib/internships/jd-parser";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -362,4 +363,31 @@ export async function resolveConflict(formData: FormData) {
   if (error) redirect(`${returnTo}?notice=conflict_changed`);
   revalidatePath(returnTo);
   redirect(`${returnTo}?notice=conflict_resolved`);
+}
+
+export async function batchDecideCandidates(_previous: BatchState, formData: FormData): Promise<BatchState> {
+  const user = await requireUser();
+  const track = String(formData.get("track") ?? "");
+  if (!tracks.has(track)) return { status: "error", message: "无效的求职线。", results: [] };
+  if (user.isMock) return { status: "error", message: "隔离预览模式不会写入数据。", results: [] };
+  const parsed = parseBatchForm({ ids: formData.getAll("candidateIds"), decision: formData.get("decision"), reason: formData.get("reason") });
+  if (!parsed.ok) return { status: "error", message: parsed.message, results: [] };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("decide_my_candidates", {
+    target_candidate_ids: parsed.ids,
+    target_decision: parsed.decision,
+    target_reason: parsed.reason ?? undefined
+  });
+  if (error) {
+    const locked = error.message.toLocaleLowerCase("en-US").includes("privacy_locked");
+    return { status: "error", message: locked ? "隐私锁已开启，当前不能写入。" : "批量处理失败，所有候选保持原状。", results: [] };
+  }
+  const results: BatchItemResult[] = (data ?? []).map((row) => ({
+    candidateId: row.candidate_id,
+    outcome: row.outcome as BatchItemResult["outcome"],
+    errorCode: row.error_code
+  }));
+  revalidatePath(trackPath(track));
+  return { status: "done", message: summarize(results), results };
 }

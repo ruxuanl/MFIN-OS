@@ -3278,6 +3278,10 @@ export type Database = {
           track: string | null
         }[]
       }
+      decide_my_candidates: {
+        Args: { target_candidate_ids: string[]; target_decision: string; target_reason?: string }
+        Returns: { candidate_id: string; error_code: string | null; opportunity_id: string | null; outcome: string }[]
+      }
       import_my_internship_jd:
         | {
             Args: {

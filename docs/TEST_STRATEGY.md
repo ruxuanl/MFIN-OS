@@ -131,3 +131,4 @@ M0 不安装产品依赖，不运行数据库，不连接外部账号。GitHub A
 - 托管环境特有行为（Auth Hook、Storage 签名链接、pg_cron 实际调度、pg_net 外呼）仍需在隔离 Test 项目验证。
 
 - 搜索（#12）：`tests/search-migration.test.mjs` 固定只读授权、三类触发器、Gmail 不含正文、隐私锁与执行授权；`pnpm test:db` 覆盖两字中文命中、AND 词、track 与公司筛选、删除触发器清理、重建、跨用户重建被拒、超长查询、隐私锁与 anon 拒绝。
+- 候选批量（#18）：`tests/candidate-batch-migration.test.mjs` 固定逐项子事务、幂等、授权与审计；`pnpm test:db` 覆盖部分失败不回滚、重复决定为 `unchanged`、重复追踪不产生重复岗位、已提升候选拒绝改状态、逐项时间线与审计、不考虑必须带原因、隐私锁。
