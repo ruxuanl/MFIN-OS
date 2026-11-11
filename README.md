@@ -22,6 +22,18 @@
 
 隔离的 Supabase（新加坡）与 Vercel 测试资源已创建。后台任务目前只有持久化状态底座；实际 Worker 运行方式将在需要定时自动化前单独确认。
 
+## 协作与任务
+
+- 任务以 GitHub Issues 为准：<https://github.com/ruxuanl/MFIN-OS/issues>。
+- 领取、分支、PR、完成定义和本地运行步骤见 `docs/SCRUM.md`。
+- 当前开发方向（求职增强）见 `docs/adr/0009-job-search-enhancement-plan.md`。
+
+## 本地运行
+
+- Windows：双击根目录 `start-local.cmd`。
+- macOS / Linux：`pnpm install --frozen-lockfile && pnpm dev`。
+- 默认可用 `AUTH_MODE=mock` 只看界面；功能验证需连接自己的隔离 Supabase 项目，见 `docs/SCRUM.md` 第 7 节。
+
 ## 本地治理检查
 
 要求 Node.js 22+ 与 pnpm 11+。无需安装项目依赖即可运行：
