@@ -8,6 +8,15 @@
 - 旧 Supabase 项目优先免费保全；恢复因两个活跃免费项目上限失败，不得自行暂停正式/测试项目或付费。
 
 
+## 2026-11-12 协作模式更新（优先于第 4、6 节及 CONTRIBUTING.md 中的里程碑流程）
+
+- **任务来源**：GitHub Issues（<https://github.com/ruxuanl/MFIN-OS/issues>）。只实施当前 Sprint 内、状态为 `status:ready` 的 issue；列入 Sprint 即视为用户批准实施。完整流程、就绪定义、完成定义和本地运行方法见 `docs/SCRUM.md`。
+- **粒度**：一次一个 issue、一个分支（`feat/<issue号>-<主题>`）、一个 PR（`Closes #<issue号>`）。范围外的发现新开 issue 放入 `backlog`，不得顺带实现。
+- **当前方向**：求职方向增强，计划见 `docs/adr/0009-job-search-enhancement-plan.md`。D09、D28–D34 已于 2026-11-12 确认，不再阻塞相关 issue。
+- **环境**：只用本地与各自的隔离 Test Supabase 项目（D33）和合成数据；不发布 Production，不连接真实 Gmail/Calendar 账号；迁移只新增。Production 部署只能由维护者另行明确执行。
+- **停止条件**：需要第 5 节禁止的能力、需要未确认的决策、需要真实账号或 Production、验收无法达成时，在 issue 评论说明、标记 `status:blocked` 并停止。
+- 第 5 节“不可突破的产品边界”保持不变；投递包只准备材料，提交申请永远由用户本人在官网完成。
+
 ## 1. 文件职责
 
 本文件是 Codex/Agent 在本项目中的精简执行入口，不是完整产品规格。
@@ -24,6 +33,7 @@
 2. `docs/IMPLEMENTATION_PLAN.md`：当前总体架构建议、里程碑、测试策略和待确认决策。
 3. `docs/DECISIONS.md`：已经由用户确认的产品或技术决策；如果文件尚不存在，视为没有额外确认项。
 4. 与当前里程碑直接相关的 `docs/adr/`、数据、安全、测试或运行文档；只读取与本任务有关的内容。
+5. `docs/SCRUM.md` 与当前领取的 GitHub issue 正文。
 
 如果必读文件缺失、无法读取、相互矛盾或存在未解决的阻塞决策，停止实施并向用户说明，不得自行填补关键决定。
 
