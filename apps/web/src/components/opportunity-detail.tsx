@@ -2,11 +2,13 @@ import { isResumeWorkspaceEnabled } from "@/lib/config";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ApplicationPackagePanel } from "@/components/application-package-panel";
 import { PageHeader } from "@/components/page-header";
 import { OpportunityAiPanel } from "@/components/opportunity-ai-panel";
 import { WorkspaceMutationForm, type MutationField } from "@/components/workspace-mutation-form";
 import { WorkspaceNotice } from "@/components/workspace-notice";
 import { ActionPanel, ConflictPanel, CustomFieldsPanel, TimelinePanel } from "@/components/workspace-detail-panels";
+import { getApplicationPackage } from "@/lib/applications/data";
 import { requireUser } from "@/lib/auth/session";
 import { getOpportunityResumeContext } from "@/lib/resumes/data";
 import { getOpportunityDetail } from "@/lib/workspaces/data";
@@ -25,9 +27,10 @@ export async function OpportunityDetail({
   const data = await getOpportunityDetail(user, id, track);
   if (!data) notFound();
   const item = data.opportunity;
-  const resumeContext = track === "internship" && isResumeWorkspaceEnabled()
-    ? await getOpportunityResumeContext(user, id)
-    : null;
+  const [resumeContext, packageView] = await Promise.all([
+    track === "internship" && isResumeWorkspaceEnabled() ? getOpportunityResumeContext(user, id) : Promise.resolve(null),
+    getApplicationPackage(user, id)
+  ]);
   const basePath = track === "internship" ? "/internships" : "/graduate";
   const returnTo = `${basePath}/${id}`;
   const locked = new Set(data.locks.map((lock) => lock.field_path));
@@ -97,6 +100,7 @@ export async function OpportunityDetail({
             <pre>{item.raw_jd}</pre>
           </details>
         </section> : null}
+        <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
         <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} />
         <CustomFieldsPanel definitions={data.customFields} values={data.customValues} scope={track} entityType="opportunity" entityId={item.id} returnTo={returnTo} />
         <TimelinePanel timeline={data.timeline} />

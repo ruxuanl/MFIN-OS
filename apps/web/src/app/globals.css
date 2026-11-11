@@ -752,3 +752,29 @@ a[aria-busy="true"] { pointer-events: none; }
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
   .loading-spinner { animation: none; }
 }
+
+/* Application package (#13) */
+.application-package-panel { grid-column: 1 / -1; }
+.package-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.package-summary > div { padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.package-summary span { display: block; color: var(--ink-faint); font-size: calc(9px + var(--workspace-font-boost, 0px)); }
+.package-summary strong { font-size: calc(13px + var(--workspace-font-boost, 0px)); }
+.package-block { margin-bottom: 18px; }
+.package-block h4 { margin: 0 0 8px; font-size: calc(12px + var(--workspace-font-boost, 0px)); }
+.package-inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.package-inline-form select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: transparent; }
+.package-confirmed { margin: 0 0 8px; color: var(--green); font-weight: 650; }
+.package-checklist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.package-checklist li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.package-checklist li.is-done strong { color: var(--ink-faint); text-decoration: line-through; }
+.package-check { width: 24px; height: 24px; border: 1px solid var(--line-strong); border-radius: 7px; background: transparent; color: var(--green); cursor: pointer; font-weight: 700; }
+.package-check:disabled { cursor: default; opacity: .6; }
+.package-evidence { display: block; margin-top: 2px; color: var(--ink-faint); }
+.package-footer { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.package-footer > .primary-button { border: 0; text-decoration: none; }
+.package-status-actions { display: flex; gap: 8px; }
+.package-boundary { margin-top: 14px; }
+@media (max-width: 720px) {
+  .package-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .package-status-actions { width: 100%; }
+}

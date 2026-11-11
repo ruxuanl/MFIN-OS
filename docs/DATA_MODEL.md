@@ -133,3 +133,11 @@
 - `private.job_source_cursors`：未来适配器的私有游标与查询指纹；无客户端策略，仅 service role 可读写。
 
 浏览器只读本人来源与运行记录。来源提议、运行开始和运行完成均为 service-only public invoker/private definer 边界；用户审批/启停通过 owner-scoped 窄 RPC。运行开始复核 `job_radar.discovery`、隐私锁、审批、启用、公开访问和最低间隔；完成前权限失效会安全记为取消。当前切片没有真实来源行、外部抓取、候选写入或评分。
+
+## 投递包 v1（2026-11-12，#13）
+
+- `application_packages`：每个用户每个岗位一份（`unique (user_id, opportunity_id)`）。状态 `draft / ready / submitted_recorded / abandoned`；`submitted_recorded` 只能由“我已投递”流程（#14）写入。保存规则推荐的简历版本与理由、用户确认的版本与确认时间、仅 HTTPS 的官方申请链接、建议开始准备日期、截止行动引用和 `package_rules_v1`。
+- `application_package_items`：材料清单，`source` 为 `default` 或 `jd_rule`；`jd_rule` 条目保存 JD 原文片段作为依据。
+- 两表对 authenticated 只读；写入只经 `create_my_application_package`、`confirm_my_application_package_resume`、`set_my_application_package_item`、`set_my_application_package_status` 四个 invoker 包装，背后为 `private` 下的 SECURITY DEFINER 实现，逐项核对 `auth.uid()`、对象所有权与隐私锁，并追加时间线与审计。
+- 创建时若岗位有截止日，同时创建一条 `opportunity` 上下文的截止行动（香港时间 18:00），Calendar 是否写入沿用现有同步规则；建议的准备时间只作为行动的 `suggested_start_at`，不自动写入 Calendar。
+
