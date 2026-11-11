@@ -148,3 +148,10 @@
 - `record_my_application_submitted`：岗位须处于“新发现 / 评估 / 准备 / 已投递”；把岗位改为 `submitted`、写入 `applied_at` 与等待对方，把投递包置为 `submitted_recorded`，把截止行动标记完成，并写时间线与可撤销审计。
 - `undo_my_application_submitted`：仅当记录之后岗位没有其他修改（版本号一致）时恢复上述三处状态，快照标记为 `undone` 保留为历史；否则拒绝并提示手动调整。
 
+
+## 统一搜索 v1（2026-11-12，#12）
+
+- `search_documents`：可完整重建的搜索投影，每个对象一行（`unique (object_type, object_id)`），覆盖岗位、未处理候选和非无关的 Gmail 邮件摘要。保存标题、正文（≤8000 字，岗位 JD 原文最多截取 6000 字）、公司、地点、阶段、截止、来源链接、来源类型（`user / jd_paste / public_source / gmail`）、来源时间与索引时间；`search_text` 为生成列。
+- 由 `opportunities`、`opportunity_candidates`、`gmail_messages` 上的 AFTER 触发器维护；候选被提升或忽略、邮件被判为无关时删除对应文档。Gmail 只索引主题、发件人摘要、摘要和行动标题，不存在完整正文。
+- `search_my_workspace(query, types, track, stage, company, location, deadline_from, deadline_to, limit)`：空格分词（最多 8 个），每个词都必须出现（AND，大小写不敏感子串，两字中文可命中）；首词经 `pg_trgm` GIN 索引缩小候选；排序为标题命中 ×3 + 正文命中 + 标题首词加分。返回 160 字摘录与来源信息。
+- `rebuild_my_search_documents()` 只重建调用者本人的投影，不改动源表（不会更新 `updated_at`）。不使用向量（D28）。
