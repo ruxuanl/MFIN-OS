@@ -7,7 +7,7 @@ import { SubmitButton } from "@/components/operation-feedback";
 import { ReportSection } from "@/components/report-section";
 import { requireUser } from "@/lib/auth/session";
 import { getReportCenterData } from "@/lib/reports/data";
-import { formatSchedule, groupReportItems } from "@/lib/reports/model";
+import { formatSchedule, groupReportItems, strategyLabel } from "@/lib/reports/model";
 
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long", timeZone: "Asia/Hong_Kong" });
 const cutoffFormatter = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Hong_Kong" });
@@ -52,7 +52,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <div className="focus-line" />
         <div className="report-meta-line">
           <span>{morning ? `数据截止 ${cutoffFormatter.format(new Date(morning.data_cutoff_at))}` : schedule ? formatSchedule(schedule) : "默认每天 08:00"}</span>
-          <span>规则排序 v1 · 非 AI</span>
+          <span>{strategyLabel(morning?.generation_strategy)}</span>
           <span>{unavailable} 个来源尚不可用</span>
         </div>
       </section>
@@ -70,6 +70,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <div className="report-main-column">
           <ReportSection section="schedule" items={grouped.get("schedule") ?? []} />
           <ReportSection section="must_do" items={grouped.get("must_do") ?? []} />
+          <ReportSection section="deadline" items={grouped.get("deadline") ?? []} />
           <ReportSection section="focus" items={focus} />
         </div>
         <aside className="report-side-column">

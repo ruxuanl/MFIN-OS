@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/operation-feedback";
 import { ReportSection } from "@/components/report-section";
 import { requireUser } from "@/lib/auth/session";
 import { getReportCenterData } from "@/lib/reports/data";
-import { formatSchedule, groupReportItems, reportLabels } from "@/lib/reports/model";
+import { formatSchedule, groupReportItems, reportLabels, strategyLabel } from "@/lib/reports/model";
 
 export const metadata = { title: "复盘" };
 
@@ -52,7 +52,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
         const grouped = groupReportItems(items);
         return <section className="report-history-card" key={reportType}>
           <div className="report-history-heading">
-            <div><p>{reportType}</p><h2>{reportLabels[reportType]}</h2>{report ? <small>{report.report_date} · v{report.version} · 截止 {new Date(report.data_cutoff_at).toLocaleString("zh-CN")}</small> : <small>尚无报告版本</small>}</div>
+            <div><p>{reportType}</p><h2>{reportLabels[reportType]}</h2>{report ? <small>{report.report_date} · v{report.version} · 截止 {new Date(report.data_cutoff_at).toLocaleString("zh-CN")} · {strategyLabel(report.generation_strategy)}</small> : <small>尚无报告版本</small>}</div>
             <form action={generateReportAction}><input type="hidden" name="reportType" value={reportType} /><input type="hidden" name="returnTo" value="/review" /><SubmitButton className="quiet-button" disabled={!data.reportPermission.allowed} pendingLabel="正在生成…">立即生成</SubmitButton></form>
           </div>
           {report ? <><p className="report-summary">{report.summary}</p>{reportType === "evening" ? <EveningCloseout items={grouped.get("incomplete") ?? []} /> : Array.from(grouped.entries()).map(([section, sectionItems]) => <ReportSection key={section} section={section} items={sectionItems} compact />)}</> : <p className="workspace-empty small-empty">开启报告权限后生成；没有数据时会明确显示空报告，不用低质量内容凑数。</p>}

@@ -162,3 +162,10 @@
 - 追踪与准备申请复用 `promote_opportunity_candidate`，重复执行不会产生重复岗位；已进入长期表的候选不能再改为稍后或不考虑。
 - 每个被修改的候选各写一条时间线（`decision_changed` 或 `promoted`）和一条审计（`candidate.decide` / `candidate.promote`，`externalAction: false`）；隐私锁开启时整批拒绝。
 - 界面：候选卡片多选，提交期间所选卡片乐观显示“处理中”；动作结束后以服务器数据为准，失败项恢复原状并逐项列出原因。
+
+## 截止提醒与晨报 rules_v2（2026-11-12，#19）
+
+- 晨报新增 `deadline`（截止提醒）分区：未投递（`new / evaluation / preparation`）的岗位和未处理候选，在截止前 7、3、1 天及当天进入日报；只按日期分级，不额外推送。
+- 即时推送只用于 24 小时内截止（宪法 7.2）：截止日按香港时间 18:00 计（与 #13 投递包一致），类型沿用白名单内的 `deadline_24h`，须 `notifications.smart_push` 授权；`dedupe_key = deadline_24h:<类型>:<id>:<截止日>`，重复扫描不重复入队。`private.enqueue_due_deadline_notifications()` 由 pg_cron 每小时第 7 分执行；生成晨报时也会为本人执行一次。
+- 前三项（`focus`）升级为 `rules_v2`：开放行动与未完成投递包（`draft / ready`）统一打分排序；投递包会替代它自己的截止行动，同一岗位不会占两个名额。理由文本标注“规则重点（非 AI）”。
+- `reports.generation_strategy` 允许 `rules_v2`；新报告摘要写明规则版本与数据截止时间，界面显示“规则排序 v2 · 非 AI”。
