@@ -168,3 +168,40 @@ test("search gold set: v1 recall@5 >= 0.85 and beats the includes() baseline", {
   assert.ok(v1.recallAt5 >= 0.85, `recall@5 ${v1.recallAt5}`);
   assert.ok(v1.mrr > baseline.mrr && v1.recallAt5 > baseline.recallAt5);
 });
+
+test("deadline reminders: 7/3/1 tiers, rules_v2 top three, 24h push de-duplicated", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const today = "(now() at time zone 'Asia/Hong_Kong')::date";
+  const setup = `reset role;
+    insert into public.permission_grants (user_id, capability_key, mode) values
+      ('${user}', 'reports.generate', 'persistent'), ('${user}', 'notifications.smart_push', 'persistent')
+      on conflict (user_id, capability_key) do update set mode = 'persistent', active = true;
+    insert into public.opportunities (user_id, track, intent, company, role_title, main_stage, deadline) values
+      ('${user}', 'graduate', 'track', '提醒七天', 'A', 'evaluation', ${today} + 7),
+      ('${user}', 'graduate', 'track', '提醒五天', 'A', 'evaluation', ${today} + 5),
+      ('${user}', 'internship', 'track', '提醒三天', 'A', 'preparation', ${today} + 3),
+      ('${user}', 'internship', 'track', '提醒已投', 'A', 'submitted', ${today} + 1),
+      ('${user}', 'internship', 'track', '提醒今天', 'A', 'evaluation', ${today});
+    set local role authenticated;
+    select public.create_my_application_package((select id from public.opportunities where company = '提醒三天'),
+      '[{"key":"cv","label":"简历","required":true,"source":"default"}]'::jsonb, null, 'r', null, null, 'package_rules_v1')`;
+  const morning = asUser(`${setup}; select public.generate_my_report('morning');
+    select string_agg(i.section || ':' || split_part(i.title, ' · ', 1), ',' order by i.section, i.position)
+      || '|' || (select generation_strategy from public.reports where status <> 'superseded')
+    from public.report_items i where i.section in ('deadline', 'focus')`).split("\n").pop();
+  const [items, strategy] = morning.split("|");
+  assert.equal(strategy, "rules_v2");
+  const deadlines = items.split(",").filter((entry) => entry.startsWith("deadline:")).map((entry) => entry.slice(9));
+  assert.ok(deadlines.includes("提醒七天") && deadlines.includes("提醒三天"));
+  assert.ok(!deadlines.includes("提醒五天") && !deadlines.includes("提醒已投"), "only 7/3/1/0 tiers, unsubmitted jobs");
+  assert.match(items, /focus:推进投递包：提醒三天/, "package next step joins the top three");
+
+  const pushes = asUser(`${setup}; reset role; select private.enqueue_due_deadline_notifications(); select private.enqueue_due_deadline_notifications();
+    select count(*) || ':' || count(*) filter (where title like '%提醒今天%') from public.notifications where notification_type = 'deadline_24h'`).split("\n").pop();
+  const hongKongHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Hong_Kong", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  assert.equal(pushes, hongKongHour < 18 ? "1:1" : "0:0", "a same-day deadline (18:00 HKT) pushes once; repeated sweeps do not duplicate");
+
+  const denied = asUser(`${setup}; reset role; update public.permission_grants set mode = 'off' where capability_key = 'notifications.smart_push';
+    select private.enqueue_deadline_notifications('${user}')`).split("\n").pop();
+  assert.equal(denied, "0", "no push without notifications.smart_push");
+  assert.throws(() => asUser(`select private.enqueue_due_deadline_notifications()`), /permission denied/);
+});

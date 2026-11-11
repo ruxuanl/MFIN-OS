@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatSchedule, groupReportItems, isReportType } from "./model";
+import { formatSchedule, groupReportItems, isReportType, sectionLabels, strategyLabel } from "./model";
 
 describe("report model", () => {
   it("accepts only the three product report types", () => {
@@ -19,5 +19,10 @@ describe("report model", () => {
     const grouped = groupReportItems([{ section: "focus", title: "A" }, { section: "risk", title: "B" }, { section: "focus", title: "C" }]);
     expect(grouped.get("focus")?.map((item) => item.title)).toEqual(["A", "C"]);
   });
-});
 
+  it("labels the rules_v2 strategy as non-AI and names the deadline section", () => {
+    expect(strategyLabel("rules_v2")).toBe("规则排序 v2 · 非 AI");
+    expect(strategyLabel(undefined)).toContain("非 AI");
+    expect(sectionLabels.deadline).toBe("截止提醒");
+  });
+});

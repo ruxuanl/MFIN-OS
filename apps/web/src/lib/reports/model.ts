@@ -10,6 +10,7 @@ export const reportLabels: Record<ReportType, string> = {
 export const sectionLabels: Record<string, string> = {
   schedule: "今日固定日程",
   must_do: "必须处理",
+  deadline: "截止提醒",
   focus: "三个重点",
   internship: "实习重点岗位",
   graduate: "秋招重点岗位",
@@ -40,3 +41,13 @@ export function groupReportItems<T extends { section: string }>(items: T[]) {
   return Map.groupBy(items, (item) => item.section);
 }
 
+
+const strategyLabels: Record<string, string> = {
+  rules_v1: "规则排序 v1 · 非 AI",
+  rules_v2: "规则排序 v2 · 非 AI",
+  ai: "AI 生成"
+};
+
+export function strategyLabel(strategy: string | null | undefined) {
+  return (strategy && strategyLabels[strategy]) || "规则排序 · 非 AI";
+}
