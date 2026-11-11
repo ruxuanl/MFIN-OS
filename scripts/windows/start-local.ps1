@@ -1,7 +1,11 @@
 # MFin OS - local dev launcher (Windows PowerShell)
 # Usage (from repo root):  powershell -ExecutionPolicy Bypass -File scripts\windows\start-local.ps1
 #   or double-click start-local.cmd in the repo root.
+#   -Ci   run the full check suite (pnpm run ci) instead of starting the dev server:
+#         powershell -ExecutionPolicy Bypass -File scripts\windows\start-local.ps1 -Ci
+#         or: start-local.cmd -Ci
 # Mode is controlled by apps\web\.env.local (AUTH_MODE=mock by default).
+param([switch]$Ci)
 $ErrorActionPreference = "Stop"
 Set-Location (Resolve-Path (Join-Path $PSScriptRoot "..\.."))
 
@@ -31,10 +35,15 @@ Write-Host "pnpm version: $(corepack pnpm -v)" -ForegroundColor Cyan
 Write-Host "Installing / verifying dependencies..." -ForegroundColor Cyan
 pn install --frozen-lockfile --registry=$registry
 
+if ($Ci) {
+  Write-Host "Running full checks (pnpm run ci)..." -ForegroundColor Cyan
+  pn run ci
+  Write-Host "All checks passed." -ForegroundColor Green
+  exit 0
+}
+
 $mode = (Select-String -Path "apps\web\.env.local" -Pattern '^AUTH_MODE=(.*)$' -ErrorAction SilentlyContinue).Matches.Groups[1].Value
 if (-not $mode) { $mode = "supabase (real account)" }
 Write-Host "Starting dev server on http://localhost:3000  [AUTH_MODE: $mode]" -ForegroundColor Green
 Start-Job { Start-Sleep 8; Start-Process "http://localhost:3000" } | Out-Null
-# Call the web app's own "next dev" directly: the root "dev" script shells out
-# to a bare `pnpm`, which is not on PATH when pnpm comes from corepack.
-pn --dir apps/web dev
+pn run dev

@@ -92,14 +92,19 @@ mock 模式使用虚构身份，所有数据为空，只能检查界面，不能
 
 ### 7.4 启动
 
-- Windows：双击根目录 `start-local.cmd`，或在仓库根目录运行 `powershell -ExecutionPolicy Bypass -File scripts\windows\start-local.ps1`。脚本默认使用 npmmirror 源；设置环境变量 `MFIN_REGISTRY` 可改回官方源。
-- macOS / Linux：`pnpm install --frozen-lockfile`，然后 `pnpm dev`。
+| 系统 | 启动开发服务 | 全量检查 |
+|---|---|---|
+| Windows | 双击根目录 `start-local.cmd`，或 `powershell -ExecutionPolicy Bypass -File scripts\windows\start-local.ps1` | `start-local.cmd -Ci`，或在上述命令后加 `-Ci` |
+| macOS / Linux | `pnpm install --frozen-lockfile`，然后 `pnpm dev` | `pnpm run ci` |
+
+- Windows 脚本通过 `corepack pnpm` 使用 pnpm，不需要管理员权限，也不需要全局安装 pnpm；默认使用 npmmirror 源，设置环境变量 `MFIN_REGISTRY` 可改回官方源。
+- 根目录 `package.json` 的脚本通过 `scripts/pnpm.mjs` 调用 pnpm，因此在没有全局 `pnpm` 命令时，`corepack pnpm run ci` 同样可用。新增根脚本时不要直接写 `pnpm ...`，测试会拦截。
 - 打开 <http://localhost:3000>。
 
 ### 7.5 检查
 
-- 全量检查：`pnpm run ci`。
-- 只跑测试：`pnpm test`。
+- 全量检查：见上表。内容包括格式、治理、ESLint、TypeScript、静态检查、全部测试和生产构建。
+- 只跑测试：`pnpm test`（Windows：`corepack pnpm test`）。
 
 ## 8. Sprint 节奏
 
