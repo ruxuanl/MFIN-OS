@@ -146,3 +146,9 @@
 
 - `opportunity_communications` 对 authenticated 只读；建议只由触发器在数据库内生成，用户决定只经 `decide_my_communication_link`。建议与确认都不会修改岗位阶段，也不涉及任何外发邮件能力（Gmail 仍只有 `gmail.readonly`）。
 - SECURITY DEFINER 的匹配函数不使用临时表：调用者可在会话中预先创建同名临时表并借此注入其他用户的岗位 ID。测试固定这一约束。
+
+## AI 草稿边界（#15，D29）
+
+- 发送给 OpenAI 的内容由封闭类型 `PackPayload` 决定：一条 JD、一个已确认简历版本的文本、用户粘贴的问题；单测断言载荷只含这三部分，调用方传入的其他字段会被丢弃。邮件、日历、联系人、其他岗位或其他简历版本不会进入载荷。
+- `store: false`；`safety_identifier` 为用户 ID 的 SHA-256；超出预留或预算的调用被拒绝，人工草稿功能不受影响。
+- AI 不覆盖简历文件，也不覆盖用户编辑过（锁定）的草稿段落；系统不提交、不发送、不填写任何外部表单（AGENTS.md 第 5 节）。

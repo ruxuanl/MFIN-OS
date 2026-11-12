@@ -2,6 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 
+import { applicationPackMaxOutputTokens, applicationPackSchema, packInstructions, type PackPayload } from "@/lib/ai/application-pack";
 import { getOpenAiConfig } from "@/lib/config";
 
 export const resumePromptVersion = "resume_analysis_v1";
@@ -112,9 +113,11 @@ async function callStructured(
   safetyIdentifier: string,
   schemaName: string,
   schema: Record<string, unknown>,
-  input: OpenAI.Responses.ResponseInput
+  input: OpenAI.Responses.ResponseInput,
+  maxOutputTokens?: number
 ): Promise<AiCallResult> {
-  const config = getOpenAiConfig();
+  // A caller may raise the output bound (application packs need 4000 tokens); it stays explicit.
+  const config = { ...getOpenAiConfig(), ...(maxOutputTokens ? { maxOutputTokens } : {}) };
   const client = new OpenAI({ apiKey: config.apiKey });
   const response = await client.responses.create({
     model: config.model,
@@ -161,4 +164,13 @@ export function analyzeJdMatch(
       }
     ]
   }]);
+}
+
+// #15: drafts only. The payload is the closed whitelist from buildPackPayload (one JD, one
+// confirmed resume version's text, pasted questions); store=false comes from callStructured.
+export function generateApplicationPack(safetyIdentifier: string, payload: PackPayload) {
+  return callStructured(safetyIdentifier, "application_pack", applicationPackSchema as unknown as Record<string, unknown>, [{
+    role: "user",
+    content: [{ type: "input_text", text: packInstructions(payload) }]
+  }], applicationPackMaxOutputTokens);
 }
