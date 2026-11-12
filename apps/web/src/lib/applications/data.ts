@@ -9,6 +9,7 @@ type Tables = Database["public"]["Tables"];
 export type ApplicationPackage = Tables["application_packages"]["Row"];
 export type ApplicationPackageItem = Tables["application_package_items"]["Row"];
 export type ApplicationSnapshot = Tables["application_snapshots"]["Row"];
+export type ApplicationDraft = Tables["application_drafts"]["Row"];
 export type PackageResumeOption = { id: string; label: string; versionNumber: number; documentKind: string; archived: boolean; createdAt: string };
 
 export type ApplicationPackageView = {
@@ -74,6 +75,15 @@ export async function getApplicationSnapshots(user: AppUser, opportunityId: stri
   const supabase = await createClient();
   const { data, error } = await supabase.from("application_snapshots").select("*")
     .eq("opportunity_id", opportunityId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getApplicationDrafts(user: AppUser, opportunityId: string): Promise<ApplicationDraft[]> {
+  if (user.isMock) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("application_drafts").select("*")
+    .eq("opportunity_id", opportunityId).order("field_key");
   if (error) throw error;
   return data ?? [];
 }

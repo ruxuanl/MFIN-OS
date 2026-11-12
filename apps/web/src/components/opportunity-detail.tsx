@@ -1,7 +1,8 @@
-import { isResumeWorkspaceEnabled } from "@/lib/config";
+import { isOpenAiConfigured, isResumeWorkspaceEnabled } from "@/lib/config";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ApplicationDraftsPanel } from "@/components/application-drafts-panel";
 import { ApplicationPackagePanel } from "@/components/application-package-panel";
 import { ApplicationSubmissionPanel } from "@/components/application-submission-panel";
 import { PageHeader } from "@/components/page-header";
@@ -11,7 +12,7 @@ import { OpportunitySkillsPanel } from "@/components/opportunity-skills-panel";
 import { WorkspaceMutationForm, type MutationField } from "@/components/workspace-mutation-form";
 import { WorkspaceNotice } from "@/components/workspace-notice";
 import { ActionPanel, ConflictPanel, CustomFieldsPanel, TimelinePanel } from "@/components/workspace-detail-panels";
-import { getApplicationPackage, getApplicationSnapshots } from "@/lib/applications/data";
+import { getApplicationDrafts, getApplicationPackage, getApplicationSnapshots } from "@/lib/applications/data";
 import { requireUser } from "@/lib/auth/session";
 import { getOpportunityCommunications } from "@/lib/gmail/links";
 import { getOpportunityResumeContext } from "@/lib/resumes/data";
@@ -31,13 +32,14 @@ export async function OpportunityDetail({
   const user = await requireUser();
   // One parallel batch: the detail, resume context, package and snapshots are all
   // owner-scoped by RLS, so loading them before the not-found check is safe.
-  const [data, resumeContext, packageView, snapshots, communications, skillsView] = await Promise.all([
+  const [data, resumeContext, packageView, snapshots, communications, skillsView, drafts] = await Promise.all([
     getOpportunityDetail(user, id, track),
     track === "internship" && isResumeWorkspaceEnabled() ? getOpportunityResumeContext(user, id) : Promise.resolve(null),
     getApplicationPackage(user, id),
     getApplicationSnapshots(user, id),
     getOpportunityCommunications(user, id),
-    getOpportunitySkills(user, id)
+    getOpportunitySkills(user, id),
+    getApplicationDrafts(user, id)
   ]);
   if (!data) notFound();
   const item = data.opportunity;
@@ -112,6 +114,7 @@ export async function OpportunityDetail({
         </section> : null}
         <OpportunitySkillsPanel view={skillsView} opportunityId={item.id} returnTo={returnTo} />
         <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
+        <ApplicationDraftsPanel drafts={drafts} opportunityId={item.id} returnTo={returnTo} aiConfigured={isOpenAiConfigured()} resumeConfirmed={Boolean(packageView?.package?.selected_resume_version_id)} />
         <ApplicationSubmissionPanel snapshots={snapshots} opportunityId={item.id} mainStage={item.main_stage} returnTo={returnTo} />
         <OpportunityCommunicationsPanel links={communications} returnTo={returnTo} />
         <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} />

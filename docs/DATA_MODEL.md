@@ -185,3 +185,11 @@
 - 对照简历：岗位当前绑定的简历版本 → 投递包确认的版本 → 有效 Master 的最新版本。`get_my_opportunity_skills` 返回每个技能是否被简历覆盖。
 - `companies`：按规范化公司名（去括号注记与“有限公司 / Ltd”等后缀）每用户一行；`opportunities.company_id` 由触发器维护。
 - `query_my_opportunities(skills, stages, track, location, company, replied, resume_gap, deadline_within_days)`：结构化多跳查询（岗位 → 技能 → 简历差距 → 关联邮件）。“已回复”指投递后有已确认关联的邮件（#17）、已应用的 Gmail 面试更新，或阶段已到测试 / 面试 / offer / 被拒。`/search` 的“按条件提问”用规则解析器把一句话转成这些条件，并显示解析结果。
+
+## 投递包 AI 草稿（2026-11-12，#15）
+
+- 新增分析类型 `application_pack`（提示版本 `application_pack_v1`），权限为既有的 `ai.material_draft`（依赖 `ai.master` 与 `ai.analysis`），与简历/JD 分析共用每月 HK$100 硬上限、指纹缓存和 `store: false` 调用。
+- 载荷白名单（`lib/ai/application-pack.ts`）：只含本岗位的一条 JD（公司、岗位、正文）、投递包中**已确认**的简历版本文本（`private.resume_version_texts`，D30）和用户粘贴的最多 5 个问题；没有确认简历时拒绝生成。单次预留按“输入字符数 + 最长输出 4000 tokens”的最坏情况计算，不低于配置值、不超过 HK$100。
+- 相同 JD、简历版本文本与问题生成相同指纹：已有结果直接复用（`drafts_cached`），不重复计费。
+- `application_drafts`：每个岗位的 `gap_explanation / tailoring_points / cover_letter / qa_1…qa_5`，保存正文、依据（`{claim, source: jd|resume, quote}`）、缺失信息与 `needs_confirmation`（置信度低、缺信息或没有依据时为真）。`apply_my_application_pack` 只写入未锁定的段落；`save_my_application_draft` 保存用户编辑（或不经 AI 的手写草稿）并锁定，带版本号冲突检测；`unlock_my_application_draft` 允许下次生成覆盖。
+- 修复：`complete_ai_analysis` 原先以 `actor_type = 'automation'` 写审计，而 `audit_events` 不接受该值，导致所有 AI 完成写入失败；新迁移改为 `'ai'`，简历与 JD 分析一并修复。

@@ -231,6 +231,63 @@ export type Database = {
         }
         Relationships: []
       }
+      application_drafts: {
+        Row: {
+          ai_analysis_id: string | null
+          body: string
+          created_at: string
+          evidence: Json
+          field_key: string
+          id: string
+          locked: boolean
+          missing_info: Json
+          needs_confirmation: boolean
+          opportunity_id: string
+          prompt_version: string | null
+          question: string | null
+          source: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          ai_analysis_id?: string | null
+          body?: string
+          created_at?: string
+          evidence?: Json
+          field_key: string
+          id?: string
+          locked?: boolean
+          missing_info?: Json
+          needs_confirmation?: boolean
+          opportunity_id: string
+          prompt_version?: string | null
+          question?: string | null
+          source: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          ai_analysis_id?: string | null
+          body?: string
+          created_at?: string
+          evidence?: Json
+          field_key?: string
+          id?: string
+          locked?: boolean
+          missing_info?: Json
+          needs_confirmation?: boolean
+          opportunity_id?: string
+          prompt_version?: string | null
+          question?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       application_package_items: {
         Row: {
           created_at: string
@@ -3480,6 +3537,13 @@ export type Database = {
         Args: { target_text: string; target_version_id: string }
         Returns: number
       }
+      apply_my_application_pack: { Args: { target_analysis_id: string }; Returns: number }
+      read_my_resume_text: { Args: { target_version_id: string }; Returns: string }
+      save_my_application_draft: {
+        Args: { target_base_version?: number; target_body: string; target_field_key: string; target_opportunity_id: string; target_question?: string }
+        Returns: number
+      }
+      unlock_my_application_draft: { Args: { target_draft_id: string }; Returns: undefined }
       import_my_internship_jd:
         | {
             Args: {

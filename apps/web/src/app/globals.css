@@ -832,3 +832,16 @@ a[aria-busy="true"] { pointer-events: none; }
 .skill-list .skill-evidence { font-style: italic; }
 .question-presets { display: flex; flex-wrap: wrap; gap: 8px; }
 .question-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; color: var(--ink-faint); }
+
+/* Application drafts (#15) */
+.draft-generate-form, .draft-edit-form { display: grid; gap: 8px; margin: 10px 0; }
+.draft-generate-form label, .draft-edit-form label { display: grid; gap: 4px; }
+.draft-generate-form textarea, .draft-edit-form textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--paper-elevated); font: inherit; }
+.draft-generate-form small { color: var(--ink-faint); }
+.draft-generate-form > .primary-button, .draft-edit-form > .quiet-button { justify-self: start; }
+.draft-card { display: grid; gap: 6px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.draft-card.needs-confirmation { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+.draft-card-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.draft-missing { margin: 0; color: var(--danger); font-size: calc(11px + var(--workspace-font-boost, 0px)); }
+.draft-evidence ul { margin: 6px 0 0; padding-left: 18px; }
+.draft-evidence small { color: var(--ink-faint); }

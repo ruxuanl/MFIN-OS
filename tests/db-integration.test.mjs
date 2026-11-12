@@ -312,3 +312,55 @@ test("skills: dictionary extraction, locks, resume gap and the 20 multi-hop gold
       on conflict (user_id) do update set is_locked = true, locked_at = now();
     set local role authenticated; select public.set_my_opportunity_skill('${jobId("j1")}', 'sql', false)`), /privacy_locked/);
 });
+
+test("application pack: budget, permission, draft locks, version conflicts, privacy lock", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const opp = "ad000000-0000-4000-8000-000000000001";
+  const version = "ad000000-0000-4000-8000-000000000003";
+  const result = JSON.stringify({
+    coverLetter: { text: "Dear team", confidence: "high", evidence: [{ claim: "x", source: "resume", quote: "y" }], missingInfo: [] },
+    gapExplanation: { text: "gap", confidence: "low", evidence: [], missingInfo: ["GPA"] },
+    tailoringPoints: { text: "- a", confidence: "high", evidence: [{ claim: "a", source: "jd", quote: "b" }], missingInfo: [] },
+    answers: [{ question: "Why us?", text: "Because", confidence: "high", evidence: [{ claim: "c", source: "jd", quote: "d" }], missingInfo: [] }]
+  });
+  const grants = (mode) => `insert into public.permission_grants (user_id, capability_key, mode) values
+      ('${user}', 'ai.master', '${mode}'), ('${user}', 'ai.analysis', '${mode}'), ('${user}', 'ai.material_draft', '${mode}')
+      on conflict (user_id, capability_key) do update set mode = '${mode}', active = true`;
+  const setup = `reset role; ${grants("persistent")};
+    insert into public.opportunities (id, user_id, track, intent, company, role_title, main_stage, raw_jd)
+      values ('${opp}', '${user}', 'graduate', 'apply', '草稿示例资本', 'Analyst', 'preparation', repeat('合成 JD 正文 ', 10));
+    insert into storage.objects (bucket_id, name) values ('resume-files', '${user}/pack/r.pdf');
+    insert into public.resume_documents (id, user_id, label, document_kind) values ('ad000000-0000-4000-8000-000000000002', '${user}', 'Master', 'master');
+    insert into public.resume_versions (id, user_id, document_id, version_number, storage_path, original_filename, mime_type, size_bytes, content_sha256, extracted_character_count)
+      values ('${version}', '${user}', 'ad000000-0000-4000-8000-000000000002', 1, '${user}/pack/r.pdf', 'r.pdf', 'application/pdf', 10, repeat('e', 64), 10);
+    set local role authenticated;
+    create temp table u as select public.reserve_my_ai_usage('application_pack', repeat('d', 64), 300) as id;
+    create temp table an as select public.complete_my_ai_analysis((select id from u), '${opp}', '${version}', 'test-model', 'application_pack_v1', '${result}'::jsonb, 100, 200, 120) as id`;
+  const last = (sql) => asUser(`${setup}; ${sql}`).split("\n").pop();
+
+  assert.equal(last(`select public.apply_my_application_pack((select id from an));
+    select string_agg(field_key || ':' || needs_confirmation, ',' order by field_key) from public.application_drafts`),
+    "cover_letter:false,gap_explanation:true,qa_1:false,tailoring_points:false", "low confidence or no evidence needs confirmation");
+  assert.equal(last(`select public.apply_my_application_pack((select id from an));
+    select public.save_my_application_draft('${opp}', 'cover_letter', null, 'My own letter', 1);
+    select public.apply_my_application_pack((select id from an)) || '|' ||
+      (select body || ':' || locked from public.application_drafts where field_key = 'cover_letter')`), "3|My own letter:true", "a user edit survives regeneration");
+  assert.throws(() => asUser(`${setup}; select public.apply_my_application_pack((select id from an));
+    select public.save_my_application_draft('${opp}', 'cover_letter', null, 'a', 1); select public.save_my_application_draft('${opp}', 'cover_letter', null, 'b', 1)`), /draft_version_conflict/);
+  assert.equal(last(`select public.save_my_application_draft('${opp}', 'qa_2', 'Hand-written question', 'manual answer', null);
+    select source || ':' || locked from public.application_drafts where field_key = 'qa_2'`), "user:true", "manual drafts work without AI");
+  assert.equal(last(`select (select status from public.ai_usage_events where id = (select id from u)) || '|' ||
+    (select count(*) from public.audit_events where action = 'ai.analysis_completed')`), "completed|1", "completion audit is accepted");
+
+  assert.throws(() => asUser(`${setup}; select public.reserve_my_ai_usage('application_pack', repeat('f', 64), 9900)`), /ai_monthly_budget_exceeded/);
+  assert.equal(last(`reset role; update public.ai_usage_events set status = 'completed', actual_hkd_cents = 9900 where id = (select id from u);
+    set local role authenticated; select public.save_my_application_draft('${opp}', 'cover_letter', null, 'still works', null) is not null`), "t",
+    "budget exhaustion does not block manual drafting");
+  assert.throws(() => asUser(`${setup}; reset role; ${grants("off")}; set local role authenticated;
+    select public.reserve_my_ai_usage('application_pack', repeat('a', 64), 100)`), /ai_permission_denied/);
+  assert.throws(() => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked, locked_at) values ('${user}', true, now())
+      on conflict (user_id) do update set is_locked = true, locked_at = now();
+    set local role authenticated; select public.save_my_application_draft('${opp}', 'cover_letter', null, 'x', null)`), /privacy_locked/);
+  assert.throws(() => asUser(`${setup}; insert into public.application_drafts (user_id, opportunity_id, field_key, body, source, locked)
+    values ('${user}', '${opp}', 'gap_explanation', 'x', 'ai', false)`), /permission denied/);
+});
