@@ -6,6 +6,9 @@ import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { searchWorkspace } from "@/lib/search/data";
 import { hasCriteria, parseSearchParams, resultHref } from "@/lib/search/params";
+import { skillLabelByKey } from "@/lib/skills/dictionary";
+import { queryOpportunities } from "@/lib/skills/data";
+import { describeFilters, hasFilters, parseQuestion, presetQuestions } from "@/lib/skills/question";
 
 export const metadata = { title: "搜索" };
 
@@ -25,7 +28,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const user = await requireUser();
   const raw = await searchParams;
   const params = parseSearchParams(raw);
-  const outcome = hasCriteria(params) ? await searchWorkspace(user, params) : null;
+  const ask = typeof raw.ask === "string" ? raw.ask.trim().slice(0, 200) : "";
+  const askFilters = ask ? parseQuestion(ask) : null;
+  const [outcome, answer] = await Promise.all([
+    hasCriteria(params) ? searchWorkspace(user, params) : Promise.resolve(null),
+    askFilters && hasFilters(askFilters) ? queryOpportunities(user, askFilters) : Promise.resolve(null)
+  ]);
+  const skillName = (key: string) => skillLabelByKey.get(key) ?? key;
   const notice = typeof raw.notice === "string" ? notices[raw.notice] : undefined;
 
   return (
@@ -74,6 +83,46 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                             来源：{sourceLabels[item.source_kind] ?? item.source_kind} · {formatDate(item.source_at)} · 索引于 {formatDate(item.indexed_at)}
                             {item.source_url ? <> · <a className="quiet-link" href={item.source_url} target="_blank" rel="noreferrer noopener">原始来源 ↗</a></> : null}
                           </small>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+      </section>
+
+
+      <section className="workspace-section">
+        <div className="workspace-section-heading"><div><p>Multi-hop questions</p><h2>按条件提问</h2></div></div>
+        <p className="section-note">把“阶段 + 技能 + 回复 + 简历差距 + 截止 + 地点”组合成一句话；规则解析（非 AI），并显示系统如何理解。</p>
+        <form className="search-form" method="get">
+          <input name="ask" defaultValue={ask} placeholder="例如：投过、要求 Python、还没回复" maxLength={200} />
+          <SubmitButton className="primary-button" pendingLabel="正在查询…">提问</SubmitButton>
+        </form>
+        <div className="question-presets">
+          {presetQuestions.map((preset) => <Link key={preset} className="quiet-link" href={`/search?ask=${encodeURIComponent(preset)}`}>{preset}</Link>)}
+        </div>
+        {askFilters ? (
+          <div className="question-chips">
+            <span>理解为：</span>
+            {hasFilters(askFilters) ? describeFilters(askFilters, skillName).map((chip) => <span key={chip} className="phase-badge">{chip}</span>) : <span>没有识别到可用条件，请换一种说法。</span>}
+          </div>
+        ) : null}
+        {!answer ? null
+          : answer.status === "mock" ? <p className="workspace-empty">隔离预览模式没有可查询的数据。</p>
+            : answer.status === "privacy_locked" ? <p className="workspace-empty">隐私锁已开启，查询已被服务器拒绝。</p>
+              : answer.status === "error" ? <p className="workspace-empty">查询失败，请稍后重试。</p>
+                : answer.results.length === 0 ? <p className="workspace-empty">没有符合全部条件的岗位。</p>
+                  : (
+                    <ol className="search-results">
+                      {answer.results.map((item) => (
+                        <li key={item.opportunity_id}>
+                          <div className="search-result-meta">
+                            <span className="phase-badge">{item.track === "graduate" ? "秋招" : "实习"}</span>
+                            <span>{item.main_stage}</span>
+                            {item.deadline ? <span>截止 {item.deadline}</span> : null}
+                            <span>{item.replied ? "已有回复" : "未见回复"}</span>
+                          </div>
+                          <Link href={`${item.track === "graduate" ? "/graduate" : "/internships"}/${item.opportunity_id}`}><strong>{item.company} · {item.role_title}</strong></Link>
+                          <small>技能：{item.skills.length ? item.skills.map(skillName).join("、") : "—"}{item.missing_skills.length ? ` · 简历未体现：${item.missing_skills.map(skillName).join("、")}` : ""}</small>
                         </li>
                       ))}
                     </ol>

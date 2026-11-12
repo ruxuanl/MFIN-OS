@@ -245,3 +245,70 @@ test("mail ↔ opportunity links: unique-match suggestions, confirm / reject / u
       on conflict (user_id) do update set is_locked = true, locked_at = now();
     set local role authenticated; select public.decide_my_communication_link(${link("lk1")}, 'confirm')`), /privacy_locked/);
 });
+
+test("skills: dictionary extraction, locks, resume gap and the 20 multi-hop gold questions", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, async () => {
+  const { readFileSync } = await import("node:fs");
+  const gold = JSON.parse(readFileSync(path.join("tests", "fixtures", "multihop-gold.json"), "utf8"));
+  const jobId = (key) => `ab000000-0000-4000-8000-${key.replace("j", "").padStart(12, "0")}`;
+  const keyById = new Map(gold.jobs.map((job) => [jobId(job.key), job.key]));
+  const q = (value) => (value === null || value === undefined ? "null" : `'${String(value).replaceAll("'", "''")}'`);
+  const today = "(now() at time zone 'Asia/Hong_Kong')::date";
+  const resumePath = `${user}/gold/resume.pdf`;
+  const setup = [
+    "reset role",
+    `insert into public.opportunities (id, user_id, track, intent, company, role_title, location, main_stage, requirements, deadline, applied_at) values ${gold.jobs.map((job) =>
+      `('${jobId(job.key)}', '${user}', '${job.track}', 'track', ${q(`技能示例公司 ${job.key}`)}, ${q(`岗位 ${job.key}`)}, ${q(job.location)}, '${job.stage}', ${q(job.requirements)},
+        ${job.deadlineInDays === undefined ? "null" : `${today} + ${job.deadlineInDays}`}, ${["submitted", "test", "interview", "waiting", "offer"].includes(job.stage) ? "now() - interval '10 days'" : "null"})`).join(", ")}`,
+    ...gold.jobs.filter((job) => job.reply).map((job) => `with m as (insert into public.gmail_messages (user_id, provider_message_id, provider_thread_id, history_id, received_at, classification, subject, gmail_link, confidence)
+        values ('${user}', 'reply-${job.key}', 'reply-${job.key}', '1', now() - interval '1 day', 'personal', 'reply', 'https://mail.google.com/mail/u/0/#inbox/r', 0.9) returning id)
+      insert into public.opportunity_communications (user_id, opportunity_id, gmail_message_id, status, match_rule, match_evidence, decided_at)
+        select '${user}', '${jobId(job.key)}', m.id, 'linked', 'company_name', 'gold', now() from m`),
+    `insert into storage.objects (bucket_id, name) values ('resume-files', '${resumePath}')`,
+    `insert into public.resume_documents (id, user_id, label, document_kind) values ('ac000000-0000-4000-8000-000000000001', '${user}', 'Master', 'master')`,
+    `insert into public.resume_versions (id, user_id, document_id, version_number, storage_path, original_filename, mime_type, size_bytes, content_sha256, extracted_character_count)
+      values ('ac000000-0000-4000-8000-000000000002', '${user}', 'ac000000-0000-4000-8000-000000000001', 1, '${resumePath}', 'r.pdf', 'application/pdf', 100, repeat('b', 64), 100)`,
+    "set local role authenticated",
+    `select public.store_my_resume_text('ac000000-0000-4000-8000-000000000002', ${q(gold.resume)})`
+  ].join(";\n");
+
+  const arr = (list) => (list && list.length ? `array[${list.map(q).join(",")}]::text[]` : "null");
+  const calls = gold.questions.map((item) => {
+    const f = item.filters;
+    return `select '${item.id}|' || coalesce((select string_agg(opportunity_id::text, ',') from public.query_my_opportunities(
+      target_skills => ${arr(f.skills)}, target_stages => ${arr(f.stages)}, target_track => ${q(f.track)}, target_location => ${q(f.location)},
+      target_replied => ${f.replied === null ? "null" : f.replied}, target_resume_gap => ${f.resumeGap === null ? "null" : f.resumeGap},
+      target_deadline_within_days => ${f.deadlineWithinDays ?? "null"})), '')`;
+  }).join(";\n");
+  const output = asUser(`${setup};\n${calls}`).split("\n").filter((line) => /^m\d\d\|/.test(line));
+  const correct = output.filter((line) => {
+    const [id, ids] = line.split("|");
+    const got = (ids ? ids.split(",") : []).map((value) => keyById.get(value) ?? value).sort();
+    const expected = gold.questions.find((item) => item.id === id).expected;
+    return JSON.stringify(got) === JSON.stringify(expected);
+  });
+  assert.equal(output.length, 20);
+  assert.ok(correct.length / 20 >= 0.8, `multi-hop accuracy ${correct.length}/20: ${output.filter((line) => !correct.includes(line)).join(" ; ")}`);
+  assert.equal(correct.length, 20, "every gold question returns exactly the expected jobs");
+
+  const extracted = asUser(`${setup}; reset role;
+    insert into public.opportunities (id, user_id, track, intent, company, role_title, main_stage, requirements) values
+      ('ab000000-0000-4000-8000-0000000000aa', '${user}', 'internship', 'track', '误匹配测试', 'Intern', 'new', 'HR 面试，R&D 背景，JavaScript，Windows');
+    select coalesce(string_agg(skill_key, ','), '∅') from public.opportunity_skills where opportunity_id = 'ab000000-0000-4000-8000-0000000000aa'`).split("\n").pop();
+  assert.equal(extracted, "∅", "no R / Java / Wind false positives in SQL either");
+
+  const locked = asUser(`${setup};
+    select public.set_my_opportunity_skill('${jobId("j1")}', 'machine_learning', false);
+    select public.set_my_opportunity_skill('${jobId("j1")}', 'tableau', true);
+    reset role; update public.opportunities set requirements = requirements || '；机器学习' where id = '${jobId("j1")}'; set local role authenticated;
+    select string_agg(skill_key || ':' || status || ':' || source, ',' order by skill_key) from public.opportunity_skills where opportunity_id = '${jobId("j1")}'`).split("\n").pop();
+  assert.equal(locked, "machine_learning:removed:user,python:active:rule,sql:active:rule,tableau:active:user", "user edits survive re-extraction");
+
+  const gap = asUser(`${setup}; select string_agg(skill_key || ':' || in_resume, ',' order by skill_key) from public.get_my_opportunity_skills('${jobId("j4")}')`).split("\n").pop();
+  assert.equal(gap, "cantonese:true,excel:true,financial_modeling:false");
+
+  assert.throws(() => asUser(`select count(*) from private.resume_version_texts`), /permission denied/, "resume text is not reachable from the browser role");
+  assert.throws(() => asUser(`${setup}; reset role;
+    insert into public.privacy_locks (user_id, is_locked, locked_at) values ('${user}', true, now())
+      on conflict (user_id) do update set is_locked = true, locked_at = now();
+    set local role authenticated; select public.set_my_opportunity_skill('${jobId("j1")}', 'sql', false)`), /privacy_locked/);
+});

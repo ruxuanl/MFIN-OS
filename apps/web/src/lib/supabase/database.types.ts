@@ -1141,6 +1141,30 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          name_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          name_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          name_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           archived_at: string | null
@@ -1922,6 +1946,7 @@ export type Database = {
           archived_at: string | null
           candidate_id: string | null
           close_reason: string | null
+          company_id: string | null
           company: string
           created_at: string
           deadline: string | null
@@ -1955,6 +1980,7 @@ export type Database = {
           archived_at?: string | null
           candidate_id?: string | null
           close_reason?: string | null
+          company_id?: string | null
           company: string
           created_at?: string
           deadline?: string | null
@@ -1988,6 +2014,7 @@ export type Database = {
           archived_at?: string | null
           candidate_id?: string | null
           close_reason?: string | null
+          company_id?: string | null
           company?: string
           created_at?: string
           deadline?: string | null
@@ -2209,6 +2236,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      opportunity_skills: {
+        Row: {
+          evidence: string | null
+          id: string
+          locked: boolean
+          opportunity_id: string
+          rule_version: string
+          skill_key: string
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          evidence?: string | null
+          id?: string
+          locked?: boolean
+          opportunity_id: string
+          rule_version?: string
+          skill_key: string
+          source: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          evidence?: string | null
+          id?: string
+          locked?: boolean
+          opportunity_id?: string
+          rule_version?: string
+          skill_key?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       permission_grants: {
         Row: {
@@ -2504,6 +2570,36 @@ export type Database = {
         }
         Relationships: []
       }
+      resume_version_skills: {
+        Row: {
+          created_at: string
+          evidence: string | null
+          id: string
+          resume_version_id: string
+          rule_version: string
+          skill_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: string | null
+          id?: string
+          resume_version_id: string
+          rule_version?: string
+          skill_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: string | null
+          id?: string
+          resume_version_id?: string
+          rule_version?: string
+          skill_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resume_versions: {
         Row: {
           content_sha256: string
@@ -2660,6 +2756,33 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visible_columns?: string[]
+        }
+        Relationships: []
+      }
+      skill_definitions: {
+        Row: {
+          aliases: string[]
+          category: string
+          dict_version: string
+          label: string
+          patterns: string[]
+          skill_key: string
+        }
+        Insert: {
+          aliases: string[]
+          category: string
+          dict_version?: string
+          label: string
+          patterns: string[]
+          skill_key: string
+        }
+        Update: {
+          aliases?: string[]
+          category?: string
+          dict_version?: string
+          label?: string
+          patterns?: string[]
+          skill_key?: string
         }
         Relationships: []
       }
@@ -3330,6 +3453,32 @@ export type Database = {
       decide_my_candidates: {
         Args: { target_candidate_ids: string[]; target_decision: string; target_reason?: string }
         Returns: { candidate_id: string; error_code: string | null; opportunity_id: string | null; outcome: string }[]
+      }
+      get_my_opportunity_skills: {
+        Args: { target_opportunity_id: string }
+        Returns: { category: string; evidence: string | null; in_resume: boolean; label: string; locked: boolean; resume_version_id: string | null; skill_key: string; source: string; status: string }[]
+      }
+      query_my_opportunities: {
+        Args: {
+          target_company?: string
+          target_deadline_within_days?: number
+          target_limit?: number
+          target_location?: string
+          target_replied?: boolean
+          target_resume_gap?: boolean
+          target_skills?: string[]
+          target_stages?: string[]
+          target_track?: string
+        }
+        Returns: { company: string; deadline: string | null; main_stage: string; missing_skills: string[]; opportunity_id: string; replied: boolean; role_title: string; skills: string[]; track: string }[]
+      }
+      set_my_opportunity_skill: {
+        Args: { target_opportunity_id: string; target_present: boolean; target_skill_key: string }
+        Returns: string
+      }
+      store_my_resume_text: {
+        Args: { target_text: string; target_version_id: string }
+        Returns: number
       }
       import_my_internship_jd:
         | {

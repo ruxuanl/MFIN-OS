@@ -142,3 +142,4 @@ M0 不安装产品依赖，不运行数据库，不连接外部账号。GitHub A
 - 结论（D28）：当前不需要向量检索。跨语言同义优先用 #16 的技能词典中英别名解决；只有当追加的真实失败查询使 recall@5 低于 0.85 时，再评估只针对 JD 与简历的语义检索。
 - 截止提醒（#19）：`tests/deadline-reminders-migration.test.mjs` 固定 7/3/1 分级、24 小时窗口、授权门、去重键与 rules_v2 标注；`pnpm test:db` 覆盖分级过滤（5 天与已投递不进入）、投递包进入前三项、同日截止只推送一次、关闭授权后不推送、浏览器不能调用扫描函数。
 - 邮件关联（#17）：`tests/opportunity-communications-migration.test.mjs` 固定只读授权、四条唯一匹配规则、不改阶段、definer 代码不使用临时表、审计与撤销；`pnpm test:db` 覆盖域名命中、同公司多岗位时以岗位名消歧、公司名歧义与个人邮件不建议、确认幂等且阶段不变、撤销写审计、拒绝后重新同步不再建议也不改投其他岗位、浏览器不能直接写表、隐私锁。
+- 技能与多跳（#16）：`lib/skills/dictionary.test.ts` 覆盖中英别名与误匹配（R / HR、R&D、Java / JavaScript、Wind / Windows、PPT / pptx）；`tests/skills-dictionary.test.mjs` 保证 SQL 词典与 TypeScript 一致、正则形状、简历文本私有、锁定规则。`tests/fixtures/multihop-gold.json`：10 个合成岗位、1 份合成简历、20 条多跳标准问题（中文 16、英文 4），每条标注期望解析结果与期望岗位。2026-11-12 结果：解析 20/20，查询结果 20/20 完全一致（门槛 ≥ 80%）。题目与解析器由同一作者编写，结果偏乐观；真实使用中失败的问法只追加、不改既有期望。
