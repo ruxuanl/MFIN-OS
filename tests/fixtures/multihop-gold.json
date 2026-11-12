@@ -1,0 +1,488 @@
+{
+  "version": "multihop_gold_v1",
+  "note": "Synthetic jobs and resume. Each question lists the filters a correct parse must produce and the jobs a correct query must return.",
+  "resume": "技能：Python、Excel、SQL、粤语、英语、Wind",
+  "jobs": [
+    {
+      "key": "j1",
+      "track": "internship",
+      "location": "香港",
+      "stage": "submitted",
+      "requirements": "Python、SQL、机器学习",
+      "reply": false
+    },
+    {
+      "key": "j2",
+      "track": "internship",
+      "location": "上海",
+      "stage": "submitted",
+      "requirements": "Python、Excel",
+      "reply": true
+    },
+    {
+      "key": "j3",
+      "track": "graduate",
+      "location": "北京",
+      "stage": "interview",
+      "requirements": "Python、估值 DCF"
+    },
+    {
+      "key": "j4",
+      "track": "graduate",
+      "location": "香港",
+      "stage": "waiting",
+      "requirements": "Excel、财务建模、粤语",
+      "reply": false
+    },
+    {
+      "key": "j5",
+      "track": "internship",
+      "location": "深圳",
+      "stage": "evaluation",
+      "deadlineInDays": 2,
+      "requirements": "Python、C++、回测"
+    },
+    {
+      "key": "j6",
+      "track": "graduate",
+      "location": "上海",
+      "stage": "preparation",
+      "deadlineInDays": 6,
+      "requirements": "SQL、Tableau、数据分析"
+    },
+    {
+      "key": "j7",
+      "track": "internship",
+      "location": "香港",
+      "stage": "test",
+      "requirements": "Excel、VBA、英语"
+    },
+    {
+      "key": "j8",
+      "track": "graduate",
+      "location": "新加坡",
+      "stage": "offer",
+      "requirements": "Python、风险管理、FRM"
+    },
+    {
+      "key": "j9",
+      "track": "internship",
+      "location": "北京",
+      "stage": "new",
+      "deadlineInDays": 20,
+      "requirements": "行业研究、Wind、Excel"
+    },
+    {
+      "key": "j10",
+      "track": "graduate",
+      "location": "香港",
+      "stage": "submitted",
+      "requirements": "ESG、英语、Excel",
+      "reply": true
+    }
+  ],
+  "questions": [
+    {
+      "id": "m01",
+      "question": "投过、要求 Python、还没回复",
+      "filters": {
+        "skills": [
+          "python"
+        ],
+        "stages": [
+          "submitted",
+          "test",
+          "interview",
+          "waiting",
+          "offer"
+        ],
+        "track": null,
+        "location": null,
+        "replied": false,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j1"
+      ]
+    },
+    {
+      "id": "m02",
+      "question": "要求 Excel 但还没回复的投递",
+      "filters": {
+        "skills": [
+          "excel"
+        ],
+        "stages": [
+          "submitted",
+          "test",
+          "interview",
+          "waiting",
+          "offer"
+        ],
+        "track": null,
+        "location": null,
+        "replied": false,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j4"
+      ]
+    },
+    {
+      "id": "m03",
+      "question": "实习里要求 Python 的岗位",
+      "filters": {
+        "skills": [
+          "python"
+        ],
+        "stages": null,
+        "track": "internship",
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j1",
+        "j2",
+        "j5"
+      ]
+    },
+    {
+      "id": "m04",
+      "question": "秋招要求 SQL 的",
+      "filters": {
+        "skills": [
+          "sql"
+        ],
+        "stages": null,
+        "track": "graduate",
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j6"
+      ]
+    },
+    {
+      "id": "m05",
+      "question": "哪些岗位要求机器学习",
+      "filters": {
+        "skills": [
+          "machine_learning"
+        ],
+        "stages": null,
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j1"
+      ]
+    },
+    {
+      "id": "m06",
+      "question": "要求的技能我简历里没有的秋招岗位",
+      "filters": {
+        "skills": [],
+        "stages": null,
+        "track": "graduate",
+        "location": null,
+        "replied": null,
+        "resumeGap": true,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j10",
+        "j3",
+        "j4",
+        "j6",
+        "j8"
+      ]
+    },
+    {
+      "id": "m07",
+      "question": "本周截止、还没投的岗位",
+      "filters": {
+        "skills": [],
+        "stages": [
+          "new",
+          "evaluation",
+          "preparation"
+        ],
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": 7
+      },
+      "expected": [
+        "j5",
+        "j6"
+      ]
+    },
+    {
+      "id": "m08",
+      "question": "三天内截止的实习",
+      "filters": {
+        "skills": [],
+        "stages": null,
+        "track": "internship",
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": 3
+      },
+      "expected": [
+        "j5"
+      ]
+    },
+    {
+      "id": "m09",
+      "question": "正在面试的岗位要求什么",
+      "filters": {
+        "skills": [],
+        "stages": [
+          "interview"
+        ],
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j3"
+      ]
+    },
+    {
+      "id": "m10",
+      "question": "笔试阶段要求 VBA 的",
+      "filters": {
+        "skills": [
+          "vba"
+        ],
+        "stages": [
+          "test"
+        ],
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j7"
+      ]
+    },
+    {
+      "id": "m11",
+      "question": "拿到 offer 的岗位",
+      "filters": {
+        "skills": [],
+        "stages": [
+          "offer"
+        ],
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j8"
+      ]
+    },
+    {
+      "id": "m12",
+      "question": "香港的岗位里要求粤语的",
+      "filters": {
+        "skills": [
+          "cantonese"
+        ],
+        "stages": null,
+        "track": null,
+        "location": "香港",
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j4"
+      ]
+    },
+    {
+      "id": "m13",
+      "question": "上海投过的",
+      "filters": {
+        "skills": [],
+        "stages": [
+          "submitted",
+          "test",
+          "interview",
+          "waiting",
+          "offer"
+        ],
+        "track": null,
+        "location": "上海",
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j2"
+      ]
+    },
+    {
+      "id": "m14",
+      "question": "已经回复了的投递",
+      "filters": {
+        "skills": [],
+        "stages": [
+          "submitted",
+          "test",
+          "interview",
+          "waiting",
+          "offer"
+        ],
+        "track": null,
+        "location": null,
+        "replied": true,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j10",
+        "j2",
+        "j3",
+        "j7",
+        "j8"
+      ]
+    },
+    {
+      "id": "m15",
+      "question": "applied, requires Python, no reply yet",
+      "filters": {
+        "skills": [
+          "python"
+        ],
+        "stages": [
+          "submitted",
+          "test",
+          "interview",
+          "waiting",
+          "offer"
+        ],
+        "track": null,
+        "location": null,
+        "replied": false,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j1"
+      ]
+    },
+    {
+      "id": "m16",
+      "question": "internships requiring Excel",
+      "filters": {
+        "skills": [
+          "excel"
+        ],
+        "stages": null,
+        "track": "internship",
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j2",
+        "j7",
+        "j9"
+      ]
+    },
+    {
+      "id": "m17",
+      "question": "graduate roles in Hong Kong",
+      "filters": {
+        "skills": [],
+        "stages": null,
+        "track": "graduate",
+        "location": "香港",
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j10",
+        "j4"
+      ]
+    },
+    {
+      "id": "m18",
+      "question": "jobs requiring backtesting due this week",
+      "filters": {
+        "skills": [
+          "backtesting"
+        ],
+        "stages": null,
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": 7
+      },
+      "expected": [
+        "j5"
+      ]
+    },
+    {
+      "id": "m19",
+      "question": "要求 ESG 而我简历缺少的",
+      "filters": {
+        "skills": [
+          "esg"
+        ],
+        "stages": null,
+        "track": null,
+        "location": null,
+        "replied": null,
+        "resumeGap": true,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j10"
+      ]
+    },
+    {
+      "id": "m20",
+      "question": "还没投、要求行业研究的实习",
+      "filters": {
+        "skills": [
+          "equity_research"
+        ],
+        "stages": [
+          "new",
+          "evaluation",
+          "preparation"
+        ],
+        "track": "internship",
+        "location": null,
+        "replied": null,
+        "resumeGap": null,
+        "deadlineWithinDays": null
+      },
+      "expected": [
+        "j9"
+      ]
+    }
+  ]
+}

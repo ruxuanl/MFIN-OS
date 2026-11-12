@@ -176,3 +176,12 @@
 - 建议由 `gmail_messages` 上的触发器生成（`classification = 'job'`，主题、发件人摘要、摘要或行动标题变化时）。按顺序尝试四条规则，**只在恰好命中一个进行中岗位时**生成建议：发件人域名（取自岗位来源链接，招聘平台和公共邮箱域名除外）→ 公司名（去掉括号注记与“有限公司 / Ltd”等后缀）→ 公司名 + 岗位名 → 岗位名（≥6 字符）。唯一性按全部进行中岗位判断；结果若是用户拒绝或撤销过的组合则丢弃，不退而选择下一个岗位。已被 D23 面试自动更新关联的邮件不再建议。
 - `decide_my_communication_link(link, confirm | reject | unlink)`：只有用户本人可执行，隐私锁开启时拒绝；确认与撤销写入岗位时间线（`communication_linked / communication_unlinked`），三种操作都写审计（`stageChanged: false`）。任何操作都不修改岗位阶段，D23 的自动闭环条件没有扩大。
 - 界面：收件箱新增“邮件与岗位关联建议”，岗位详情新增“相关邮件”，可撤销关联。
+
+## 技能词典、岗位技能与简历差距（2026-11-12，#16）
+
+- `skill_definitions`（`skills_dict_v1`，D34）：44 个技能，含中英文别名与对应的 PostgreSQL 正则。拉丁字母别名带词边界（`r` 不命中 HR / R&D，`java` 不命中 JavaScript，`wind` 不命中 Windows），中文别名按子串匹配。TypeScript 版本 `apps/web/src/lib/skills/dictionary.ts` 是唯一来源，测试保证两者一致。
+- `opportunity_skills`：岗位 ↔ 技能，`source` 为 `rule` 或 `user`，带 80 字以内的命中片段。岗位的岗位名、部门、职责、要求或原始 JD 变化时由触发器重新识别：只替换未锁定的规则行。用户手动添加或移除（`set_my_opportunity_skill`）的行一律锁定，写时间线与审计。
+- `private.resume_version_texts`（D30）：简历提取文本，仅数据库所有者可读；上传新版本时保存，旧版本可在岗位详情点击“从简历文件提取技能”。`resume_version_skills` 由文本按同一词典生成。
+- 对照简历：岗位当前绑定的简历版本 → 投递包确认的版本 → 有效 Master 的最新版本。`get_my_opportunity_skills` 返回每个技能是否被简历覆盖。
+- `companies`：按规范化公司名（去括号注记与“有限公司 / Ltd”等后缀）每用户一行；`opportunities.company_id` 由触发器维护。
+- `query_my_opportunities(skills, stages, track, location, company, replied, resume_gap, deadline_within_days)`：结构化多跳查询（岗位 → 技能 → 简历差距 → 关联邮件）。“已回复”指投递后有已确认关联的邮件（#17）、已应用的 Gmail 面试更新，或阶段已到测试 / 面试 / offer / 被拒。`/search` 的“按条件提问”用规则解析器把一句话转成这些条件，并显示解析结果。

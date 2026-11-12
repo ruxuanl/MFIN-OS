@@ -100,6 +100,15 @@ export async function uploadResume(formData: FormData) {
   }
   revalidatePath("/materials");
   const registeredVersionId = registered.data?.[0]?.version_id ?? versionId;
+  // D30: keep the extracted text in the private table so skills can be compared (#16). Best effort:
+  // the upload itself already succeeded.
+  if (extracted.extractedText.trim()) {
+    const stored = await supabase.rpc("store_my_resume_text", {
+      target_version_id: registeredVersionId,
+      target_text: extracted.extractedText.slice(0, 100000)
+    });
+    if (stored.error) console.error("[resume-text]", stored.error.code);
+  }
   redirect(`/materials?notice=resume_uploaded&version=${encodeURIComponent(registeredVersionId)}`);
 }
 

@@ -7,6 +7,7 @@ import { ApplicationSubmissionPanel } from "@/components/application-submission-
 import { PageHeader } from "@/components/page-header";
 import { OpportunityAiPanel } from "@/components/opportunity-ai-panel";
 import { OpportunityCommunicationsPanel } from "@/components/opportunity-communications-panel";
+import { OpportunitySkillsPanel } from "@/components/opportunity-skills-panel";
 import { WorkspaceMutationForm, type MutationField } from "@/components/workspace-mutation-form";
 import { WorkspaceNotice } from "@/components/workspace-notice";
 import { ActionPanel, ConflictPanel, CustomFieldsPanel, TimelinePanel } from "@/components/workspace-detail-panels";
@@ -14,6 +15,7 @@ import { getApplicationPackage, getApplicationSnapshots } from "@/lib/applicatio
 import { requireUser } from "@/lib/auth/session";
 import { getOpportunityCommunications } from "@/lib/gmail/links";
 import { getOpportunityResumeContext } from "@/lib/resumes/data";
+import { getOpportunitySkills } from "@/lib/skills/data";
 import { getOpportunityDetail } from "@/lib/workspaces/data";
 import { opportunityStages, stageLabels } from "@/lib/workspaces/model";
 
@@ -29,12 +31,13 @@ export async function OpportunityDetail({
   const user = await requireUser();
   // One parallel batch: the detail, resume context, package and snapshots are all
   // owner-scoped by RLS, so loading them before the not-found check is safe.
-  const [data, resumeContext, packageView, snapshots, communications] = await Promise.all([
+  const [data, resumeContext, packageView, snapshots, communications, skillsView] = await Promise.all([
     getOpportunityDetail(user, id, track),
     track === "internship" && isResumeWorkspaceEnabled() ? getOpportunityResumeContext(user, id) : Promise.resolve(null),
     getApplicationPackage(user, id),
     getApplicationSnapshots(user, id),
-    getOpportunityCommunications(user, id)
+    getOpportunityCommunications(user, id),
+    getOpportunitySkills(user, id)
   ]);
   if (!data) notFound();
   const item = data.opportunity;
@@ -107,6 +110,7 @@ export async function OpportunityDetail({
             <pre>{item.raw_jd}</pre>
           </details>
         </section> : null}
+        <OpportunitySkillsPanel view={skillsView} opportunityId={item.id} returnTo={returnTo} />
         <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
         <ApplicationSubmissionPanel snapshots={snapshots} opportunityId={item.id} mainStage={item.main_stage} returnTo={returnTo} />
         <OpportunityCommunicationsPanel links={communications} returnTo={returnTo} />
