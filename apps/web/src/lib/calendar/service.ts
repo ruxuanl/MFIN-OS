@@ -36,6 +36,7 @@ import {
   type CalendarCredentials,
   type GoogleOAuthConfig
 } from "./oauth";
+import { calendarFailureCode } from "./errors";
 
 type Tables = Database["public"]["Tables"];
 type CalendarSource = Tables["calendar_sources"]["Row"];
@@ -587,7 +588,12 @@ async function processOperation(
         link.provider_etag
       );
     } else {
-      providerEvent = await client.createEvent(productSource.provider_calendar_id, desired);
+      providerEvent = await client.createEvent(productSource.provider_calendar_id, {
+        ...desired,
+        // UUID hex is within Google's base32hex event-ID alphabet. Reuse on retry;
+        // a user-confirmed resync operation gets a new ID after remote deletion.
+        id: operation.id.replace(/-/g, "")
+      });
     }
     const mirror = await mirrorWrittenEvent(userId, productSource, {
       ...providerEvent,
@@ -722,7 +728,22 @@ export async function initializeCalendarConnection(
   appOrigin: string
 ) {
   const connectionId = await storeCredentials(userId, credentials);
-  return syncWithClient(userId, connectionId, calendarClient(userId, credentials.accessToken), appOrigin);
+  try {
+    return await syncWithClient(userId, connectionId, calendarClient(userId, credentials.accessToken), appOrigin);
+  } catch (error) {
+    await recordCalendarFailure(userId, error, true);
+    throw error;
+  }
+}
+
+async function recordCalendarFailure(userId: string, failure: unknown, initialization = false) {
+  const service = createServiceClient();
+  const { error } = await service.from("external_connections").update({
+    last_error_code: calendarFailureCode(failure),
+    last_error_at: new Date().toISOString(),
+    ...(initialization ? { last_success_at: null } : {})
+  }).eq("user_id", userId).eq("provider", "calendar");
+  if (error) console.error("[calendar-sync]", "calendar_failure_record_failed");
 }
 
 export async function runCalendarSync(
@@ -730,10 +751,15 @@ export async function runCalendarSync(
   oauth: GoogleOAuthConfig,
   appOrigin: string
 ) {
-  const connectionId = await assertCalendarMayAccessExternal(userId);
-  await assertCalendarCapability(userId, "calendar.read");
-  const credentials = await getFreshCredentials(userId, oauth);
-  return syncWithClient(userId, connectionId, calendarClient(userId, credentials.accessToken), appOrigin);
+  try {
+    const connectionId = await assertCalendarMayAccessExternal(userId);
+    await assertCalendarCapability(userId, "calendar.read");
+    const credentials = await getFreshCredentials(userId, oauth);
+    return await syncWithClient(userId, connectionId, calendarClient(userId, credentials.accessToken), appOrigin);
+  } catch (error) {
+    await recordCalendarFailure(userId, error);
+    throw error;
+  }
 }
 
 export async function disconnectCalendar(userId: string) {

@@ -53,5 +53,6 @@ export async function GET(request: Request) {
   };
   store.set("calendar_oauth_state", state, cookieOptions);
   store.set("calendar_oauth_verifier", verifier, cookieOptions);
+  store.set("calendar_oauth_user", user.id, cookieOptions);
   return NextResponse.redirect(buildGoogleAuthorizationUrl(getCalendarOAuthConfig(), state, challenge));
 }

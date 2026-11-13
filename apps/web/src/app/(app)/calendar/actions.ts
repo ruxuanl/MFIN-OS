@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { hasFreshReauthentication, requireUser } from "@/lib/auth/session";
 import { getCalendarSyncNotice, parseCalendarDateTimeLocal } from "@/lib/calendar/model";
 import { disconnectCalendar, runCalendarSync } from "@/lib/calendar/service";
+import { calendarFailureNotice } from "@/lib/calendar/errors";
 import { getCalendarOAuthConfig, isCalendarServerConfigured } from "@/lib/config";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -108,7 +109,7 @@ export async function triggerCalendarSync() {
     );
     notice = getCalendarSyncNotice(result.pendingOperations, result.conflicts);
   } catch (error) {
-    const code = error instanceof Error && error.message.includes("paused") ? "paused" : "sync_failed";
+    const code = calendarFailureNotice(error);
     redirect(`/calendar?notice=${code}`);
   }
   revalidatePath("/calendar");
