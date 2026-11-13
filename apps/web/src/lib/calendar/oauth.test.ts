@@ -9,7 +9,8 @@ import {
   buildGoogleAuthorizationUrl,
   createOAuthState,
   createPkcePair,
-  exchangeGoogleAuthorizationCode
+  exchangeGoogleAuthorizationCode,
+  refreshGoogleAccessToken
 } from "./oauth";
 
 const config = {
@@ -51,5 +52,38 @@ describe("Google Calendar OAuth", () => {
     expect(new URLSearchParams(body).get("client_secret")).toBe(config.clientSecret);
     expect(credentials.refreshToken).toBe("long-lived-refresh");
     expect(credentials.scope).toEqual([...CALENDAR_SCOPES]);
+  });
+
+  it.each([
+    [undefined, "calendar_oauth_scope_missing"],
+    [CALENDAR_SCOPES[0], "calendar_oauth_scope_missing"],
+    [[...CALENDAR_SCOPES, "https://www.googleapis.com/auth/calendar"].join(" "), "calendar_oauth_scope_expanded"]
+  ])("rejects incomplete or broader consent before credentials are stored (%s)", async (scope, code) => {
+    const fetcher = vi.fn(async () => Response.json({
+      access_token: "access", refresh_token: "refresh", expires_in: 3600, scope
+    })) as typeof fetch;
+    await expect(exchangeGoogleAuthorizationCode(config, "code", "verifier", fetcher)).rejects.toThrow(code);
+  });
+
+  it("preserves approved scopes when a refresh response omits them", async () => {
+    const fetcher = vi.fn(async () => Response.json({ access_token: "new-access", expires_in: 3600 })) as typeof fetch;
+    const credentials = {
+      accessToken: "old-access", refreshToken: "refresh", expiresAt: new Date(0).toISOString(),
+      scope: [...CALENDAR_SCOPES], tokenType: "Bearer"
+    };
+    const refreshed = await refreshGoogleAccessToken(config, credentials, fetcher);
+    expect(refreshed.accessToken).toBe("new-access");
+    expect(refreshed.refreshToken).toBe("refresh");
+    expect(refreshed.scope).toEqual([...CALENDAR_SCOPES]);
+  });
+
+  it("rejects partial scopes returned during refresh", async () => {
+    const fetcher = vi.fn(async () => Response.json({
+      access_token: "access", expires_in: 3600, scope: CALENDAR_SCOPES[0]
+    })) as typeof fetch;
+    await expect(refreshGoogleAccessToken(config, {
+      accessToken: "old", refreshToken: "refresh", expiresAt: new Date(0).toISOString(),
+      scope: [...CALENDAR_SCOPES], tokenType: "Bearer"
+    }, fetcher)).rejects.toThrow("calendar_oauth_scope_missing");
   });
 });

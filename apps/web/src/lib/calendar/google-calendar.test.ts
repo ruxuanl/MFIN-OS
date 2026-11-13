@@ -84,4 +84,45 @@ describe("Google Calendar adapter", () => {
     await expect(client.listEvents("product-calendar", undefined, "stale-token"))
       .rejects.toEqual(expect.objectContaining<Partial<CalendarProviderError>>({ status, providerCode: reason }));
   });
+
+  it("recovers an insert whose response was lost without creating a second event", async () => {
+    const event = {
+      id: "1234567890abcdef", etag: "etag-1", summary: "个人｜测试",
+      description: "返回产品：https://product.example/", eventLabelId: "label-1",
+      start: { date: "2026-11-14" }, end: { date: "2026-11-15" },
+      extendedProperties: { private: {
+        product: "hku-mfin-personal-system", actionId: "action-1", eventLinkId: "link-1", origin: "https://product.example"
+      } }
+    };
+    const methods: string[] = [];
+    const fetcher = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      methods.push(init?.method ?? "GET");
+      if (init?.method === "POST") return Response.json({ error: { errors: [{ reason: "duplicate" }] } }, { status: 409 });
+      return Response.json(event);
+    }) as typeof fetch;
+    const client = new GoogleCalendarClient("test-access-token", fetcher);
+    expect(await client.createEvent("product-calendar", event)).toEqual(event);
+    expect(methods).toEqual(["POST", "GET"]);
+  });
+
+  it.each(["foreign", "cancelled", "changed"])("does not accept a %s event after an insert collision", async (scenario) => {
+    const event = {
+      id: "1234567890abcdef", summary: "个人｜测试",
+      start: { date: "2026-11-14" }, end: { date: "2026-11-15" },
+      extendedProperties: { private: {
+        product: "hku-mfin-personal-system", actionId: "action-1", eventLinkId: "link-1", origin: "https://product.example"
+      } }
+    };
+    const remote = scenario === "foreign" ? { ...event, extendedProperties: {} }
+      : scenario === "cancelled" ? { ...event, status: "cancelled" }
+      : { ...event, start: { date: "2026-11-16" } };
+    const fetcher = vi.fn(async (_input: string | URL | Request, init?: RequestInit) =>
+      init?.method === "POST" ? Response.json({}, { status: 409 }) : Response.json(remote)
+    ) as typeof fetch;
+    const client = new GoogleCalendarClient("test-access-token", fetcher);
+    await expect(client.createEvent("product-calendar", event)).rejects.toEqual(expect.objectContaining({
+      status: scenario === "foreign" ? 409 : 412
+    }));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
 });

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { CALENDAR_EVENT_LABEL_VERSION } from "./constants";
-import type { GoogleEventResource } from "./model";
+import { providerEventSchedule, type GoogleEventResource } from "./model";
 
 export type GoogleCalendarResource = {
   id?: string;
@@ -103,11 +103,31 @@ export class GoogleCalendarClient {
     );
   }
 
-  createEvent(calendarId: string, event: GoogleEventResource) {
-    return this.request<GoogleEventResource>(`calendars/${encodeURIComponent(calendarId)}/events`, "calendar.write_confirmed_plan", {
-      method: "POST",
-      body: JSON.stringify(event)
-    });
+  async createEvent(calendarId: string, event: GoogleEventResource) {
+    try {
+      return await this.request<GoogleEventResource>(`calendars/${encodeURIComponent(calendarId)}/events`, "calendar.write_confirmed_plan", {
+        method: "POST",
+        body: JSON.stringify(event)
+      });
+    } catch (error) {
+      if (!(error instanceof CalendarProviderError) || error.status !== 409 || !event.id) throw error;
+      // A previous insert may have succeeded before the response was lost.
+      const existing = await this.request<GoogleEventResource>(
+        `calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.id)}`, "calendar.read"
+      );
+      const marker = event.extendedProperties?.private;
+      const remote = existing.extendedProperties?.private;
+      if (!marker?.product || !marker.actionId || !marker.eventLinkId || !marker.origin ||
+          ["product", "actionId", "eventLinkId", "origin"].some((key) => marker[key] !== remote?.[key])) {
+        throw new CalendarProviderError(409, "eventIdOwnershipMismatch");
+      }
+      if (existing.status === "cancelled" || existing.summary !== event.summary ||
+          existing.eventLabelId !== event.eventLabelId || existing.description !== event.description ||
+          JSON.stringify(providerEventSchedule(existing)) !== JSON.stringify(providerEventSchedule(event))) {
+        throw new CalendarProviderError(412, "conditionNotMet");
+      }
+      return existing;
+    }
   }
 
   updateEvent(calendarId: string, eventId: string, event: GoogleEventResource, etag: string) {

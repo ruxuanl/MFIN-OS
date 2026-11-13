@@ -24,12 +24,18 @@ export const metadata = { title: "日历同步" };
 
 const notices: Record<string, string> = {
   not_configured: "M4 服务端密钥尚未配置；当前不会启动外部授权。",
-  connection_permission_required: "请先在状态中心开启 Calendar 连接权限。",
+  connection_permission_required: "请先在状态中心开启 Calendar 连接和日历读取权限。",
   reauth_required: "连接或断开 Calendar 前需要新的 Passkey / Face ID 或重新登录证明。",
   oauth_cancelled: "Google Calendar 授权已取消，未保存凭据。",
   oauth_state_invalid: "OAuth 状态校验失败，未保存凭据，请重新开始。",
   connection_failed: "Calendar 连接或初始化失败；没有把失败伪装为已连接。",
-  connected: "隔离 Calendar 已连接，产品日历与四类标签已初始化。",
+  connected: "Google Calendar 已连接，产品日历与四类标签已初始化。",
+  reauthorization_required: "Google 授权已失效，请重新连接 Google Calendar。测试模式授权可能在 7 天后过期。",
+  oauth_client_invalid: "Google OAuth 客户端配置无效，请核对服务端客户端 ID 与密钥。",
+  oauth_scope_missing: "Google 尚未授予全部必需的日历权限，请重新连接并勾选三项日历权限。",
+  oauth_scope_expanded: "Google 返回了日历接入范围以外的权限，本次连接已停止。请使用独立的 Calendar OAuth 客户端。",
+  calendar_api_disabled: "此 Google Cloud 项目尚未启用 Google Calendar API。启用后可点击立即同步重试。",
+  privacy_locked: "隐私锁已开启，日历连接和同步已停止。请在设置中重新验证并解除隐私锁。",
   invalid: "请求无效，未执行任何变更。",
   schedule_required: "请先为行动填写日期或开始时间。",
   queue_failed: "未能加入同步队列；隐私锁或数据约束可能仍在生效。",
@@ -97,16 +103,21 @@ export default async function CalendarPage({
         eyebrow="M4 · Calendar loop"
         title="日历同步"
         description="Google Calendar 负责每日时间与提醒；Action 和三张长期表仍以产品数据库为真相源。外部既有事件只读。"
-        action={<span className={`status-pill${connectionStatus === "connected" ? " is-ready" : ""}`}>{statusLabels[connectionStatus] ?? connectionStatus}</span>}
+        action={<span className={`status-pill${connectionStatus === "connected" && !data.connection?.lastErrorCode ? " is-ready" : ""}`}>{data.connection?.lastErrorCode ? "同步异常" : statusLabels[connectionStatus] ?? connectionStatus}</span>}
       />
 
       {notice && notices[notice] ? <p className="status-notice" role="status">{notices[notice]}</p> : null}
+      {data.connection?.lastErrorCode ? (
+        <p className="status-notice" role="status">
+          {notices[data.connection.lastErrorCode.replace(/^calendar_/, "")] ?? "上次日历同步未完成，请重试同步或重新连接 Google Calendar。"}
+        </p>
+      ) : null}
 
       <section className="calendar-connection-card">
         <div>
           <p className="page-eyebrow">Independent OAuth</p>
           <h2>{PRODUCT_CALENDAR_NAME}</h2>
-          <p>时区 {PRODUCT_CALENDAR_TIME_ZONE}。读取测试账号日历用于冲突判断，只写本产品创建的独立日历。</p>
+          <p>时区 {PRODUCT_CALENDAR_TIME_ZONE}。读取已授权账号的日历用于冲突判断，只写本产品创建的独立日历。</p>
           <div className="calendar-labels">
             {Object.entries(calendarLabels).map(([key, label]) => (
               <span key={key} style={{ "--label-color": label.backgroundColor } as React.CSSProperties}>{label.name}</span>
@@ -120,15 +131,16 @@ export default async function CalendarPage({
                 <CalendarSyncSubmitButton />
               </form>
               <form action={setCalendarConnectionState}><SubmitButton className="quiet-button" name="status" value="paused" pendingLabel="正在暂停…">暂停连接</SubmitButton></form>
-              <ReauthenticateControl />
+              <ReauthenticateControl returnTo="/calendar" />
+              {data.connection?.lastErrorCode ? <OperationLink className="quiet-button" href="/api/calendar/oauth/start" pendingLabel="正在连接…">重新连接 Google Calendar</OperationLink> : null}
               <form action={disconnectCalendarAction}><SubmitButton className="danger-button" pendingLabel="正在断开…">断开并撤销</SubmitButton></form>
             </>
           ) : connectionStatus === "paused" ? (
             <form action={setCalendarConnectionState}><SubmitButton className="primary-button" name="status" value="connected" pendingLabel="正在恢复…">恢复连接</SubmitButton></form>
           ) : (
             <>
-              <ReauthenticateControl />
-              <OperationLink className={`primary-button${!configured || data.isMock ? " is-disabled" : ""}`} disabled={!configured || data.isMock} href="/api/calendar/oauth/start" pendingLabel="正在连接…">连接测试 Calendar</OperationLink>
+              <ReauthenticateControl returnTo="/calendar" />
+              <OperationLink className={`primary-button${!configured || data.isMock ? " is-disabled" : ""}`} disabled={!configured || data.isMock} href="/api/calendar/oauth/start" pendingLabel="正在连接…">连接 Google Calendar</OperationLink>
               <Link className="quiet-link" href="/status">检查 Calendar 连接权限 →</Link>
             </>
           )}
@@ -224,7 +236,7 @@ export default async function CalendarPage({
           <div className="section-heading"><p>Sources</p><h2>日历来源</h2></div>
           <div className="calendar-source-list">
             {data.sources.map((source) => <div key={source.id}><span className={source.is_product_calendar ? "source-dot is-product" : "source-dot"} /><div><strong>{source.summary}</strong><small>{source.access_role} · {source.sync_state}</small></div></div>)}
-            {data.sources.length === 0 ? <p>连接后显示测试账号中的可读日历。</p> : null}
+            {data.sources.length === 0 ? <p>连接后显示已授权账号中的可读日历。</p> : null}
           </div>
         </section>
         <section className="calendar-section">

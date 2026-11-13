@@ -63,11 +63,22 @@ async function tokenRequest(body: URLSearchParams, fetcher: typeof fetch): Promi
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body,
-    cache: "no-store"
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000)
   });
   const result = await response.json() as TokenResponse;
   if (!response.ok || result.error) throw new Error(`calendar_oauth_${result.error ?? response.status}`);
   return result;
+}
+
+function validateScopes(scopes: string[]) {
+  if (scopes.some((scope) => !(CALENDAR_SCOPES as readonly string[]).includes(scope))) {
+    throw new Error("calendar_oauth_scope_expanded");
+  }
+  if (CALENDAR_SCOPES.some((scope) => !scopes.includes(scope))) {
+    throw new Error("calendar_oauth_scope_missing");
+  }
+  return scopes;
 }
 
 export async function exchangeGoogleAuthorizationCode(
@@ -91,7 +102,7 @@ export async function exchangeGoogleAuthorizationCode(
     accessToken: result.access_token,
     refreshToken: result.refresh_token,
     expiresAt: new Date(Date.now() + result.expires_in * 1000).toISOString(),
-    scope: result.scope?.split(" ").filter(Boolean) ?? [...CALENDAR_SCOPES],
+    scope: validateScopes(result.scope?.split(/\s+/).filter(Boolean) ?? []),
     tokenType: result.token_type ?? "Bearer"
   };
 }
@@ -112,7 +123,7 @@ export async function refreshGoogleAccessToken(
     ...credentials,
     accessToken: result.access_token,
     expiresAt: new Date(Date.now() + result.expires_in * 1000).toISOString(),
-    scope: result.scope?.split(" ").filter(Boolean) ?? credentials.scope,
+    scope: validateScopes(result.scope?.split(/\s+/).filter(Boolean) ?? credentials.scope),
     tokenType: result.token_type ?? credentials.tokenType
   };
 }

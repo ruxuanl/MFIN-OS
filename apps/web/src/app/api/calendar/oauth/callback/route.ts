@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth/session";
 import { exchangeGoogleAuthorizationCode } from "@/lib/calendar/oauth";
 import { initializeCalendarConnection } from "@/lib/calendar/service";
+import { calendarFailureNotice } from "@/lib/calendar/errors";
+import { getCalendarSyncNotice } from "@/lib/calendar/model";
 import {
   getCalendarOAuthConfig,
   getGmailOAuthConfig,
@@ -19,6 +21,7 @@ export async function GET(request: Request) {
   const store = await cookies();
   const expectedState = store.get("calendar_oauth_state")?.value;
   const verifier = store.get("calendar_oauth_verifier")?.value;
+  const expectedUser = store.get("calendar_oauth_user")?.value;
   const gmailExpectedState = store.get("gmail_oauth_state")?.value;
   const gmailVerifier = store.get("gmail_oauth_verifier")?.value;
   const state = url.searchParams.get("state");
@@ -26,8 +29,8 @@ export async function GET(request: Request) {
   // The existing test Web Client has this redirect URI registered. State
   // selects the independent Gmail flow; no Calendar grant or token is reused.
   if (state && gmailExpectedState && state === gmailExpectedState) {
-    store.delete("gmail_oauth_state");
-    store.delete("gmail_oauth_verifier");
+    store.set("gmail_oauth_state", "", { path: "/api", maxAge: 0 });
+    store.set("gmail_oauth_verifier", "", { path: "/api", maxAge: 0 });
     if (user.isMock || !isGmailServerConfigured()) {
       return NextResponse.redirect(`${url.origin}/inbox?notice=not_configured`);
     }
@@ -42,14 +45,14 @@ export async function GET(request: Request) {
       const credentials = await exchangeGmailAuthorizationCode(getGmailOAuthConfig(), code, gmailVerifier);
       await initializeGmailConnection(user.id, credentials);
       return NextResponse.redirect(`${url.origin}/inbox?notice=connected`);
-    } catch (error) {
-      console.error("[gmail-oauth-callback]", error instanceof Error ? error.message : "gmail_oauth_unknown");
+    } catch {
       return NextResponse.redirect(`${url.origin}/inbox?notice=connection_failed`);
     }
   }
 
-  store.delete("calendar_oauth_state");
-  store.delete("calendar_oauth_verifier");
+  for (const name of ["calendar_oauth_state", "calendar_oauth_verifier", "calendar_oauth_user"]) {
+    store.set(name, "", { path: "/api/calendar/oauth", maxAge: 0 });
+  }
 
   if (user.isMock || !isCalendarServerConfigured()) {
     return NextResponse.redirect(`${url.origin}/calendar?notice=not_configured`);
@@ -58,16 +61,18 @@ export async function GET(request: Request) {
   if (url.searchParams.has("error")) {
     return NextResponse.redirect(`${url.origin}/calendar?notice=oauth_cancelled`);
   }
-  if (!code || !state || !expectedState || state !== expectedState || !verifier) {
+  if (!code || !state || !expectedState || state !== expectedState || !verifier || expectedUser !== user.id) {
     return NextResponse.redirect(`${url.origin}/calendar?notice=oauth_state_invalid`);
   }
 
   try {
     const credentials = await exchangeGoogleAuthorizationCode(getCalendarOAuthConfig(), code, verifier);
-    await initializeCalendarConnection(user.id, credentials, url.origin);
-    return NextResponse.redirect(`${url.origin}/calendar?notice=connected`);
+    const result = await initializeCalendarConnection(user.id, credentials, url.origin);
+    const notice = getCalendarSyncNotice(result.pendingOperations, result.conflicts);
+    return NextResponse.redirect(`${url.origin}/calendar?notice=${notice === "synced" ? "connected" : notice}`);
   } catch (error) {
-    console.error("[calendar-oauth-callback]", error instanceof Error ? error.message : "calendar_oauth_unknown");
-    return NextResponse.redirect(`${url.origin}/calendar?notice=connection_failed`);
+    const notice = calendarFailureNotice(error);
+    console.error("[calendar-oauth-callback]", notice);
+    return NextResponse.redirect(`${url.origin}/calendar?notice=${notice === "sync_failed" ? "connection_failed" : notice}`);
   }
 }
