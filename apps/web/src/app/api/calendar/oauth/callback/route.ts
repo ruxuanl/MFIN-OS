@@ -14,6 +14,7 @@ import {
 } from "@/lib/config";
 import { exchangeGmailAuthorizationCode } from "@/lib/gmail/oauth";
 import { initializeGmailConnection } from "@/lib/gmail/service";
+import { gmailOAuthFailureNotice, safeGmailErrorCode } from "@/lib/gmail/errors";
 
 export async function GET(request: Request) {
   const user = await requireUser();
@@ -45,8 +46,9 @@ export async function GET(request: Request) {
       const credentials = await exchangeGmailAuthorizationCode(getGmailOAuthConfig(), code, gmailVerifier);
       await initializeGmailConnection(user.id, credentials);
       return NextResponse.redirect(`${url.origin}/inbox?notice=connected`);
-    } catch {
-      return NextResponse.redirect(`${url.origin}/inbox?notice=connection_failed`);
+    } catch (error) {
+      console.error("[gmail-oauth-callback]", safeGmailErrorCode(error));
+      return NextResponse.redirect(`${url.origin}/inbox?notice=${gmailOAuthFailureNotice(error)}`);
     }
   }
 

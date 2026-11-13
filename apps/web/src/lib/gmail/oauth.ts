@@ -60,7 +60,8 @@ async function tokenRequest(body: URLSearchParams, fetcher: typeof fetch): Promi
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body,
-    cache: "no-store"
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000)
   });
   const result = await response.json() as TokenResponse;
   if (!response.ok || result.error) throw new Error(`gmail_oauth_${result.error ?? response.status}`);
