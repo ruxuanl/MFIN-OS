@@ -364,3 +364,21 @@ test("application pack: budget, permission, draft locks, version conflicts, priv
   assert.throws(() => asUser(`${setup}; insert into public.application_drafts (user_id, opportunity_id, field_key, body, source, locked)
     values ('${user}', '${opp}', 'gap_explanation', 'x', 'ai', false)`), /permission denied/);
 });
+
+test("resume upload: register_my_resume_version accepts a real storage path (regex fix)", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  const version = "ae000000-0000-4000-8000-000000000001";
+  const path = `${user}/${version}/resume.pdf`;
+  const setup = `reset role;
+    insert into public.permission_grants (user_id, capability_key, mode) values ('${user}', 'files.upload', 'persistent')
+      on conflict (user_id, capability_key) do update set mode = 'persistent', active = true;
+    insert into storage.objects (bucket_id, name) values ('resume-files', '${path}');
+    set local role authenticated`;
+  const call = (storagePath) => `select version_id from public.register_my_resume_version(
+      target_version_id => '${version}', target_document_id => null, target_document_kind => 'master', target_label => 'Master',
+      target_original_filename => 'cv.pdf', target_mime_type => 'application/pdf', target_storage_path => '${storagePath}',
+      target_page_count => 1, target_content_sha256 => repeat('9', 64), target_size_bytes => 1000,
+      target_extracted_character_count => 500, target_source_version_id => null)`;
+  assert.equal(asUser(`${setup}; ${call(path)}`).split("\n").pop(), version, "a normal '<uid>/<version>/resume.pdf' path registers");
+  assert.throws(() => asUser(`${setup}; ${call(`${user}/${version}/resume\\.pdf`)}`), /invalid_resume_version/, "a path with a backslash is still rejected");
+  assert.throws(() => asUser(`${setup}; ${call(`${user}/${version}/other.pdf`)}`), /invalid_resume_version/);
+});
