@@ -24,6 +24,7 @@
 
 ## 协作与任务
 
+- 朋友及其 Agent 首次上手：[Agent 安装与使用指南](docs/AGENT_ONBOARDING.md)，含可复制任务提示词、独立环境配置和验收清单。
 - 任务以 GitHub Issues 为准：<https://github.com/ruxuanl/MFIN-OS/issues>。
 - 领取、分支、PR、完成定义和本地运行步骤见 `docs/SCRUM.md`。
 - 当前开发方向（求职增强）见 `docs/adr/0009-job-search-enhancement-plan.md`。
