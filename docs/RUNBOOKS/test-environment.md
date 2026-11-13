@@ -87,6 +87,24 @@ pnpm test-env:seed
 - 种子数据不包含简历文件。简历版本必须对应私有存储里的真实文件，请在“材料”页上传一份虚构简历。
 - 日历事件挂在一个只读的“合成示例日历（seed）”下；如果还没有 Calendar 连接，会创建一个状态为“已断开”的占位连接，`unseed.sql` 会删除它。
 
+## 6.2 实测记录与常见坑（2026-11-14，#7）
+
+首次在真实 Supabase 上按本手册搭建并验证通过：
+
+- 81 个迁移作为一个整体在 SQL Editor 一次跑通（约 58 万字符，约 20 秒）。执行时弹出“destructive operations / tables without RLS”提示，选 **Run without RLS**：空库上的“破坏性”语句只是迁移自身的约束调整，RLS 由迁移逐表开启。核对结果为 57 张 public 表全部启用 RLS，白名单 1 行，`skills_dict_v1` 44 条，pg_cron 任务 7 个。
+- Before User Created Hook 选 `public.before_user_created_single_user` 后启用。实测其他邮箱返回 403；已有用户之后，同一白名单邮箱再次注册也返回 403。
+- 灌入合成数据后，触发器生成搜索文档 530 条、岗位技能 1026 条、公司 12 个、邮件关联建议 15 条。以该用户身份经 RLS 调用：搜索“投行”38、“python”49、邮件“面试邀请”50，与本地数据库测试一致。
+
+常见坑：
+
+- **区域**：新建项目时选笼统的 “Asia-Pacific” 可能落到悉尼。要新加坡请点 “Need a specific region?”。
+- **Redirect URLs**：应用发起登录时带 `?next=…`，除 `http://localhost:3000/auth/callback` 外，再加一条 `http://localhost:3000/auth/callback**`。
+- **Google 登录不能在 Claude 桌面应用的内置浏览器里完成**：它不允许外部页面跳回 `localhost`。请在 Edge 或 Chrome 里打开 <http://localhost:3000> 登录。
+- **Google 客户端密钥**：在新版 Google Auth Platform 中，密钥通常只在创建时显示一次。窗口较窄时，“Add secret”收在客户端详情页右上角 ⓘ 打开的侧栏里。
+- **SQL Editor 粘贴**：直接用记事本打开 `bootstrap.sql` 或 `seed.sql`，全选复制后粘贴即可；若浏览器卡顿，可按迁移边界拆分，分几次执行。
+- **`.env.local` 删除 `AUTH_MODE` 行后**：旧版 `start-local.ps1` 会报“无法对 Null 数组进行索引”，已在 #41 修复。
+- 每日 Gmail / Calendar 同步等定时任务会调用已部署站点的 HTTPS 地址，本地收不到，在 Test 中会持续报错但无影响；请使用页面上的手动同步。
+
 ## 7. 已知限制
 
 - 定时任务（Gmail、Calendar 增量同步、岗位来源）会调用已部署站点的 HTTPS 地址，本地 `localhost` 收不到。Test 环境中这些定时任务保持未配置，使用界面上的手动同步。
