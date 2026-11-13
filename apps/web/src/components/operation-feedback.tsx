@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
@@ -73,8 +72,15 @@ export function OperationLink({
 }) {
   const [pending, setPending] = useState(false);
 
+  useEffect(() => {
+    const reset = () => setPending(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
+
   return (
-    <Link
+    // OAuth endpoints must perform a full document redirect, never an RSC fetch.
+    <a
       aria-busy={pending || undefined}
       aria-disabled={disabled || pending}
       className={className}
@@ -84,10 +90,11 @@ export function OperationLink({
           event.preventDefault();
           return;
         }
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         setPending(true);
       }}
     >
       {pending ? <BusyLabel>{pendingLabel}</BusyLabel> : children}
-    </Link>
+    </a>
   );
 }

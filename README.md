@@ -30,6 +30,7 @@
 
 ## 本地运行
 
+- Windows 日常使用：双击 `start-app.cmd`。启动时先构建一次，随后运行生产模式，打开新页面时无需现场编译。需要真实 Supabase 配置；不支持 mock。
 - Windows：双击根目录 `start-local.cmd`。
 - macOS / Linux：`pnpm install --frozen-lockfile && pnpm dev`。
 - 默认可用 `AUTH_MODE=mock` 只看界面；功能验证需连接自己的隔离 Supabase 项目，见 `docs/SCRUM.md` 第 7 节。

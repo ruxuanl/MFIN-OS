@@ -292,16 +292,6 @@ function eventRow(
   };
 }
 
-async function findLocalProductActionId(userId: string, event: GoogleEventResource) {
-  const markerActionId = getProductActionMarkerId(event);
-  if (!markerActionId) return null;
-  const service = createServiceClient();
-  const { data, error } = await service.from("actions").select("id")
-    .eq("user_id", userId).eq("id", markerActionId).maybeSingle();
-  if (error) throw error;
-  return resolveLocalProductActionId(event, data?.id ?? null);
-}
-
 async function createCalendarConflict(
   userId: string,
   link: CalendarLink,
@@ -414,7 +404,7 @@ async function reconcileProductEvent(
   return 0;
 }
 
-async function syncOneSource(
+export async function syncCalendarSource(
   userId: string,
   source: CalendarSource,
   client: GoogleCalendarClient
@@ -436,22 +426,38 @@ async function syncOneSource(
     let nextSyncToken: string | undefined;
     do {
       const page = await client.listEvents(source.provider_calendar_id, pageToken, syncToken);
-      for (const providerEvent of page.items ?? []) {
-        if (!providerEvent.id) continue;
-        const [{ data: existing, error: existingError }, productActionId] = await Promise.all([
-          service.from("calendar_events").select("*")
-            .eq("calendar_source_id", source.id).eq("provider_event_id", providerEvent.id).maybeSingle(),
-          findLocalProductActionId(userId, providerEvent)
+      const providerEvents = (page.items ?? []).filter((event) => Boolean(event.id));
+      // Bound query URLs and payload sizes, without a network round trip per event.
+      for (let offset = 0; offset < providerEvents.length; offset += 50) {
+        const batch = providerEvents.slice(offset, offset + 50);
+        const actionIds = [...new Set(batch.map(getProductActionMarkerId).filter((id): id is string => id !== null))];
+        const [existingResult, actionsResult] = await Promise.all([
+          service.from("calendar_events").select("*").eq("calendar_source_id", source.id)
+            .in("provider_event_id", batch.map((event) => event.id!)),
+          actionIds.length > 0
+            ? service.from("actions").select("id").eq("user_id", userId).in("id", actionIds)
+            : Promise.resolve({ data: [], error: null })
         ]);
-        if (existingError) throw existingError;
-        const { data: mirror, error } = await service.from("calendar_events").upsert(
-          eventRow(userId, source.id, providerEvent, productActionId, existing),
+        if (existingResult.error) throw existingResult.error;
+        if (actionsResult.error) throw actionsResult.error;
+        const existingById = new Map((existingResult.data ?? []).map((event) => [event.provider_event_id, event]));
+        const localIds = new Set((actionsResult.data ?? []).map((action) => action.id));
+        const { data: mirrors, error } = await service.from("calendar_events").upsert(
+          batch.map((event) => {
+            const markerId = getProductActionMarkerId(event);
+            return eventRow(userId, source.id, event,
+              resolveLocalProductActionId(event, markerId && localIds.has(markerId) ? markerId : null),
+              existingById.get(event.id!));
+          }),
           { onConflict: "calendar_source_id,provider_event_id" }
-        ).select("*").single();
+        ).select("*");
         if (error) throw error;
-        events += 1;
+        events += batch.length;
         if (source.is_product_calendar) {
-          conflicts += await reconcileProductEvent(userId, source, mirror, providerEvent);
+          const providerById = new Map(batch.map((event) => [event.id, event]));
+          for (const mirror of mirrors ?? []) {
+            conflicts += await reconcileProductEvent(userId, source, mirror, providerById.get(mirror.provider_event_id)!);
+          }
         }
       }
       pageToken = page.nextPageToken;
@@ -480,11 +486,12 @@ async function syncOneSource(
     await execute();
   }
 
-  await service.from("calendar_sources").update({
+  const { error: sourceUpdateError } = await service.from("calendar_sources").update({
     sync_state: "ready",
     last_error_code: null,
     ...(syncToken ? { last_incremental_sync_at: new Date().toISOString() } : { last_full_sync_at: new Date().toISOString() })
   }).eq("id", source.id);
+  if (sourceUpdateError) throw sourceUpdateError;
   return { events, conflicts, fullResync: fullResync ? 1 : 0 };
 }
 
@@ -699,7 +706,7 @@ async function syncWithClient(
   };
   for (const source of sources) {
     if (!source.selected_for_conflicts) continue;
-    const synced = await syncOneSource(userId, source, client);
+    const synced = await syncCalendarSource(userId, source, client);
     result.events += synced.events;
     result.conflicts += synced.conflicts;
     result.fullResyncs += synced.fullResync;
