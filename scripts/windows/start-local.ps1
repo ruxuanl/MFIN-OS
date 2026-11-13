@@ -42,7 +42,9 @@ if ($Ci) {
   exit 0
 }
 
-$mode = (Select-String -Path "apps\web\.env.local" -Pattern '^AUTH_MODE=(.*)$' -ErrorAction SilentlyContinue).Matches.Groups[1].Value
+# No AUTH_MODE line (the real Supabase setup) must not crash: Select-String then returns $null.
+$modeMatch = Select-String -Path "apps\web\.env.local" -Pattern '^AUTH_MODE=(.*)$' -ErrorAction SilentlyContinue | Select-Object -First 1
+$mode = if ($modeMatch) { $modeMatch.Matches[0].Groups[1].Value } else { $null }
 if (-not $mode) { $mode = "supabase (real account)" }
 Write-Host "Starting dev server on http://localhost:3000  [AUTH_MODE: $mode]" -ForegroundColor Green
 Start-Job { Start-Sleep 8; Start-Process "http://localhost:3000" } | Out-Null
