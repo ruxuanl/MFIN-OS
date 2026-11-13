@@ -42,13 +42,17 @@ const notices: Record<string, string> = {
   file_import_failed: "文件已在请求内丢弃，但最小岗位投影未写入；未把失败伪装成成功。",
   file_import_duplicate: "相同文件内容与岗位字段已经导入，没有创建重复记录。",
   file_import_pending: "文件文本已在请求内提取并丢弃原件；最小岗位投影已进入待确认。",
-  not_configured: "Production Gmail OAuth 尚未配置；当前不会读取任何邮箱。",
+  not_configured: "Gmail OAuth 尚未配置；当前不会读取任何邮箱。",
   connection_permission_required: "请先在状态中心开启 Gmail 连接与同步权限。",
   reauth_required: "连接或断开 Gmail 前需要新的 Passkey / Face ID 或重新登录证明。",
   oauth_cancelled: "Gmail 授权已取消，未保存凭据。",
   oauth_state_invalid: "OAuth 状态校验失败，未保存凭据。",
   connection_failed: "Gmail 连接失败；没有把失败伪装为已连接。",
-  connected: "Production Gmail 已以只读权限连接。",
+  connected: "Gmail 只读授权已保存，请点击“立即同步”验证邮箱读取并导入收件项目。",
+  oauth_client_invalid: "Google OAuth 客户端配置无效，请核对 Gmail 客户端 ID 与密钥。",
+  oauth_code_expired: "本次 Google 授权码已失效或已使用，请重新连接 Gmail。",
+  oauth_scope_invalid: "Google 返回的权限不符合精确 gmail.readonly 范围，未保存本次凭据。请配置独立的 Gmail OAuth 客户端后重新连接。",
+  oauth_credentials_incomplete: "Google 未返回完整的离线授权凭据，请重新连接并完成只读授权。",
   sync_partial: "本批次进度已保存；下次同步会继续，尚未宣称全部同步完成。",
   backfill_confirmation_required: "已达到原先 50 封的历史同步范围。更多历史邮件尚未处理，须先确认补同步范围。",
   synced: "Gmail 增量同步已完成；规则不确定的内容已进入待确认。",
@@ -111,10 +115,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         eyebrow="Read-only Inbox"
         title="统一收件箱"
         description="Gmail 是唯一邮件入口，规则提取与待确认保留来源和历史。"
-        action={<span className={`status-pill${connectionStatus === "connected" ? " is-ready" : ""}`}>{statusLabels[connectionStatus] ?? connectionStatus}</span>}
+        action={<span className={`status-pill${connectionStatus === "connected" && !gmailErrorCode ? " is-ready" : ""}`}>{gmailErrorCode ? "同步异常" : statusLabels[connectionStatus] ?? connectionStatus}</span>}
       />
       {notice && notices[notice] ? <p className="status-notice" role="status">{notices[notice]}</p> : null}
-      {notice === "sync_failed" && gmailErrorCode
+      {gmailErrorCode
         ? <p className="status-notice" role="status">错误码：<code>{gmailErrorCode}</code></p>
         : null}
 
@@ -129,6 +133,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
             <form action={triggerGmailSync}><SubmitButton className="primary-button" pendingLabel="正在同步…">立即同步</SubmitButton></form>
             <form action={setGmailConnectionState}><SubmitButton className="quiet-button" name="status" value="paused" pendingLabel="正在暂停…">暂停连接</SubmitButton></form>
             <ReauthenticateControl returnTo="/inbox" />
+            {gmailErrorCode ? <OperationLink className="quiet-button" href="/api/gmail/oauth/start" pendingLabel="正在连接…">重新连接 Gmail</OperationLink> : null}
             <form action={disconnectGmailAction}><SubmitButton className="danger-button" pendingLabel="正在断开…">断开并撤销</SubmitButton></form>
           </> : connectionStatus === "paused" ?
             <form action={setGmailConnectionState}><SubmitButton className="primary-button" name="status" value="connected" pendingLabel="正在恢复…">恢复连接</SubmitButton></form> : <>
@@ -177,7 +182,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
               </div>)}
             </article>;
           })}
-          {data.items.length === 0 ? <p className="workspace-empty small-empty">尚无收件项目。可手动导入微信文字/链接，或连接 Gmail 后同步。</p> : null}
+          {data.items.length === 0 ? <p className="workspace-empty small-empty">尚无收件项目。连接 Gmail 后点击“立即同步”；授权成功与邮件同步完成会分别显示状态。</p> : null}
         </div>
       </section>
       <section className="calendar-section">

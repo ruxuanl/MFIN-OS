@@ -17,3 +17,4 @@
 - [../AGENT_ONBOARDING.md](../AGENT_ONBOARDING.md)：朋友及其 Agent 的安装、独立环境与使用入口。
 - `test-environment.md`：搭建自己的隔离 Test 环境（issue #7，D33）。
 - [calendar-connection.md](calendar-connection.md)：Google Calendar 接入、授权失效、初始化故障与幂等重试验证。
+- [gmail-connection.md](gmail-connection.md)：Gmail 只读授权、分批同步与故障恢复。
