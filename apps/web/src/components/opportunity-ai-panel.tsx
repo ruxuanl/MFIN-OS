@@ -1,6 +1,7 @@
 import { analyzeOpportunityJd, assignOpportunityResume } from "@/app/(app)/materials/actions";
 import { AutoAnalyzeOpportunity } from "@/components/auto-analyze-opportunity";
 import { SubmitButton } from "@/components/operation-feedback";
+import { getAiProviderLabel } from "@/lib/config";
 import type { getOpportunityResumeContext } from "@/lib/resumes/data";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -50,7 +51,7 @@ function PanelBody({ opportunityId, returnTo, data, autoStart = false }: {
       <div><p>AI application brief</p><h2>JD 凝练与投递决策</h2></div>
       <span className="phase-badge">只生成建议与草稿</span>
     </div>
-    <p className="section-note">系统会把这一条 JD 与下方选中的简历发送给 OpenAI。不会修改文件、发送邮件或提交申请。</p>
+    <p className="section-note">系统会把这一条 JD 与下方选中的简历发送给 {getAiProviderLabel()}。不会修改文件、发送邮件或提交申请。</p>
     {data.versions.length ? <div className="ai-resume-selector">
       <form action={assignOpportunityResume}>
         <input type="hidden" name="opportunityId" value={opportunityId} />

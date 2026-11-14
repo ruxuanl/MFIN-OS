@@ -81,30 +81,44 @@ function positiveNumber(name: string) {
 }
 
 export function isOpenAiConfigured() {
-  return Boolean(
-    process.env.OPENAI_API_KEY
-      && process.env.OPENAI_ANALYSIS_MODEL
-      && process.env.OPENAI_INPUT_USD_PER_MILLION
-      && process.env.OPENAI_OUTPUT_USD_PER_MILLION
-      && process.env.OPENAI_USD_HKD_RATE
-      && process.env.OPENAI_REQUEST_RESERVE_HKD_CENTS
-  );
+  try { getOpenAiConfig(); return true; } catch { return false; }
+}
+
+export function getAiProvider() {
+  const provider = process.env.AI_PROVIDER || "openai";
+  if (provider !== "openai" && provider !== "deepseek") throw new Error("Unsupported AI provider.");
+  return provider;
+}
+
+export function getAiProviderLabel() {
+  return getAiProvider() === "deepseek" ? "DeepSeek" : "OpenAI";
+}
+
+export function getAiCacheScope() {
+  const { provider, model } = getOpenAiConfig();
+  return `${provider}:${model}:content_v2`;
 }
 
 export function getOpenAiConfig() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_ANALYSIS_MODEL;
-  if (!apiKey || !model) throw new Error("OpenAI analysis is not configured.");
-  const reserveHkdCents = positiveNumber("OPENAI_REQUEST_RESERVE_HKD_CENTS");
+  const provider = getAiProvider();
+  const prefix = provider === "deepseek" ? "DEEPSEEK" : "OPENAI";
+  const apiKey = provider === "deepseek" ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY;
+  const model = process.env[`${prefix}_ANALYSIS_MODEL`];
+  if (!apiKey || !model) throw new Error("AI analysis is not configured.");
+  if (provider === "deepseek" && !["deepseek-flash", "deepseek-v4-pro"].includes(model)) throw new Error("Unsupported DeepSeek model.");
+  const reserveHkdCents = positiveNumber(`${prefix}_REQUEST_RESERVE_HKD_CENTS`);
   if (!Number.isInteger(reserveHkdCents) || reserveHkdCents > 10_000) {
-    throw new Error("OPENAI_REQUEST_RESERVE_HKD_CENTS must be an integer between 1 and 10000.");
+    throw new Error(`${prefix}_REQUEST_RESERVE_HKD_CENTS must be an integer between 1 and 10000.`);
   }
   return {
+    provider,
+    // Bind each credential to its official host; never fall back across providers.
+    baseURL: provider === "deepseek" ? "https://api.deepseek.com" : "https://api.openai.com/v1",
     apiKey,
     model,
-    inputUsdPerMillion: positiveNumber("OPENAI_INPUT_USD_PER_MILLION"),
-    outputUsdPerMillion: positiveNumber("OPENAI_OUTPUT_USD_PER_MILLION"),
-    usdHkdRate: positiveNumber("OPENAI_USD_HKD_RATE"),
+    inputUsdPerMillion: positiveNumber(`${prefix}_INPUT_USD_PER_MILLION`),
+    outputUsdPerMillion: positiveNumber(`${prefix}_OUTPUT_USD_PER_MILLION`),
+    usdHkdRate: positiveNumber(`${prefix}_USD_HKD_RATE`),
     reserveHkdCents,
     maxOutputTokens: 2_500
   };

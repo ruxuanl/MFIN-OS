@@ -1,4 +1,4 @@
-import { isResumeWorkspaceEnabled } from "@/lib/config";
+import { getAiProvider, getAiProviderLabel, isResumeWorkspaceEnabled } from "@/lib/config";
 import Link from "next/link";
 
 import { analyzeResumeVersion, uploadResume } from "@/app/(app)/materials/actions";
@@ -26,10 +26,11 @@ const notices: Record<string, string> = {
   resume_too_complex: "文件页数或结构超过安全处理上限。",
   resume_no_text: "没有识别到足够文字；扫描版请先转换为可搜索 PDF。",
   resume_extract_failed: "无法安全读取这份文件。",
-  ai_not_configured: "AI 代码已就绪，但服务器尚未配置 OpenAI Key、模型和计费参数。",
+  ai_not_configured: "AI 尚未配置完整，请检查所选服务的密钥、模型和计费参数。",
   ai_permission_required: "请先开启 AI 总开关、AI 分析和简历分析权限。",
   ai_budget_exceeded: "本月 HK$100 AI 硬上限已阻止这次调用。",
   ai_failed: "AI 分析未完成；文件仍安全保存在简历库中。",
+  ai_usage_unsettled: "本次 AI 调用的计费尚未确认，已保留预算，请勿连续重试。文件仍安全保存在简历库中。",
   ai_completed: "AI 分析已完成并归档。",
   ai_cached: "相同简历已有同版本分析，已直接复用。"
 };
@@ -86,7 +87,7 @@ export default async function MaterialsPage({
         <div><p>Private intake</p><h2>上传一个新版本</h2></div>
         <span className="muted-count">PDF / DOCX · 10 MB</span>
       </div>
-      <p className="section-note">PDF 会做内容与视觉排版分析；DOCX 首版做内容、结构和 ATS 分析。文件只进入私有 Supabase Storage。</p>
+      <p className="section-note">{getAiProvider() === "deepseek" ? "DeepSeek 使用 PDF / DOCX 提取的文字分析内容、结构和 ATS，不评估视觉排版。" : "PDF 会做内容与视觉排版分析；DOCX 首版做内容、结构和 ATS 分析。"}文件原件保存在私有 Supabase Storage；AI 仅接收当前选中的材料内容。</p>
       <form action={uploadResume} className="workspace-form resume-upload-form">
         <label><span>材料名称</span><input name="label" defaultValue={master?.label ?? "通用 Master 简历"} maxLength={160} required /></label>
         <label><span>材料类型</span><select name="documentKind" defaultValue={master ? "tailored" : "master"}>
@@ -108,7 +109,7 @@ export default async function MaterialsPage({
 
     <div className="resume-budget-strip">
       <div><span>本月 AI 已用 / 已预留</span><strong>HK${(data.monthlyHkdCents / 100).toFixed(2)} / 100.00</strong></div>
-      <div><span>OpenAI 连接</span><strong>{data.aiConfigured ? "服务器已配置" : "等待 API Key"}</strong></div>
+      <div><span>{getAiProviderLabel()} 连接</span><strong>{data.aiConfigured ? "服务器已配置" : "等待 API Key"}</strong></div>
       <Link className="quiet-link" href="/status">查看权限中心 →</Link>
     </div>
 
@@ -129,7 +130,7 @@ export default async function MaterialsPage({
               {result ? <div className="resume-analysis-card">
                 <div className="analysis-score-grid">
                   <div><span>总分</span><strong>{score(result, "overallScore")}</strong></div>
-                  <div><span>排版</span><strong>{score(result, "layoutScore")}</strong></div>
+                  <div><span>排版</span><strong>{result.layoutScope === "content_only" ? "未评估" : score(result, "layoutScore")}</strong></div>
                   <div><span>内容</span><strong>{score(result, "contentScore")}</strong></div>
                   <div><span>ATS</span><strong>{score(result, "atsScore")}</strong></div>
                 </div>

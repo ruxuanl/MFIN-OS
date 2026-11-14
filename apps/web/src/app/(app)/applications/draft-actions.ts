@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { applicationPackPromptVersion, buildPackPayload, fingerprintSource, packReserveHkdCents, parseQuestions } from "@/lib/ai/application-pack";
 import { generateApplicationPack } from "@/lib/ai/openai-analysis";
 import { requireUser } from "@/lib/auth/session";
-import { getOpenAiConfig, isOpenAiConfigured } from "@/lib/config";
+import { getAiCacheScope, getOpenAiConfig, isOpenAiConfigured } from "@/lib/config";
 import { loadResumeText } from "@/lib/resumes/text";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -23,6 +23,7 @@ function detailPath(formData: FormData) {
 function packNotice(error: unknown) {
   const message = error instanceof Error ? error.message.toLocaleLowerCase("en-US") : "";
   if (message.includes("draft_resume_unconfirmed")) return "draft_resume_unconfirmed";
+  if (message.includes("ai_usage_unsettled")) return "ai_usage_unsettled";
   if (message.includes("budget")) return "ai_budget_exceeded";
   if (message.includes("privacy_locked")) return "privacy_locked";
   if (message.includes("permission")) return "draft_permission_required";
@@ -60,7 +61,7 @@ export async function generateApplicationDrafts(formData: FormData) {
       resumeText: await loadResumeText(versionId),
       questions: parseQuestions(String(formData.get("questions") ?? ""))
     });
-    const fingerprint = createHash("sha256").update(fingerprintSource(payload)).digest("hex");
+    const fingerprint = createHash("sha256").update(`${getAiCacheScope()}:${fingerprintSource(payload)}`).digest("hex");
 
     const cached = await supabase.from("ai_analyses").select("id").eq("analysis_kind", "application_pack")
       .eq("input_fingerprint", fingerprint).eq("prompt_version", applicationPackPromptVersion).maybeSingle();
@@ -71,8 +72,9 @@ export async function generateApplicationDrafts(formData: FormData) {
     } else {
       const config = getOpenAiConfig();
       const reserveCents = packReserveHkdCents(payload, config);
-      const reservation = await supabase.rpc("reserve_my_ai_usage", {
-        target_analysis_kind: "application_pack", target_input_fingerprint: fingerprint, target_reserve_hkd_cents: reserveCents
+      const reservation = await supabase.rpc("reserve_my_ai_usage_for_provider", {
+        target_analysis_kind: "application_pack", target_input_fingerprint: fingerprint, target_reserve_hkd_cents: reserveCents,
+        target_provider: config.provider
       });
       if (reservation.error || !reservation.data) throw new Error(reservation.error?.message ?? "ai_reservation_failed");
       usageId = reservation.data;
@@ -95,7 +97,9 @@ export async function generateApplicationDrafts(formData: FormData) {
       if (applied.error) throw new Error(applied.error.message);
     }
   } catch (error) {
-    if (usageId) await supabase.rpc("fail_my_ai_usage", { target_usage_event_id: usageId, target_error_code: "application_pack_failed" });
+    if (usageId && !(error instanceof Error && ["ai_cost_reservation_too_small", "ai_usage_unsettled"].includes(error.message))) {
+      await supabase.rpc("fail_my_ai_usage", { target_usage_event_id: usageId, target_error_code: "application_pack_failed" });
+    }
     outcome = packNotice(error);
   }
   revalidatePath(returnTo);

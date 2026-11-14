@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { BusyLabel } from "@/components/operation-feedback";
 import type { Json } from "@/lib/supabase/database.types";
@@ -51,52 +51,65 @@ export function WorkspaceMutationForm({
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (savingRef.current) return;
+    savingRef.current = true;
+    const form = event.currentTarget;
     setSaving(true);
     setMessage("");
-    const formData = new FormData(event.currentTarget);
-    const patch = Object.fromEntries(fields.map((field) => [field.name, typedValue(String(formData.get(field.name) ?? ""), field)]));
-    const baseValues = Object.fromEntries(fields.map((field) => [field.name, initialValues[field.name] ?? null]));
-    const mutation: PendingMutation = {
-      id: crypto.randomUUID(),
-      deviceId: getDeviceId(),
-      objectType,
-      objectId,
-      baseVersion: version,
-      baseValues,
-      patch,
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const formData = new FormData(event.currentTarget);
+      const patch = Object.fromEntries(fields.map((field) => [field.name, typedValue(String(formData.get(field.name) ?? ""), field)]));
+      const baseValues = Object.fromEntries(fields.map((field) => [field.name, initialValues[field.name] ?? null]));
+      const mutation: PendingMutation = {
+        id: crypto.randomUUID(),
+        deviceId: getDeviceId(),
+        objectType,
+        objectId,
+        baseVersion: version,
+        baseValues,
+        patch,
+        createdAt: new Date().toISOString()
+      };
 
-    if (!navigator.onLine) {
-      await enqueueMutation(mutation);
-      setMessage("已保存到本机 Outbox，联网后会按顺序同步。");
+      if (!navigator.onLine) {
+        await enqueueMutation(mutation);
+        form.dataset.dirty = "false";
+        setMessage("已保存到本机 Outbox，联网后会按顺序同步。");
+        setSaving(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("apply_workspace_mutation", {
+        target_mutation_id: mutation.id,
+        target_device_id: mutation.deviceId,
+        target_object_type: mutation.objectType,
+        target_object_id: mutation.objectId,
+        target_base_version: mutation.baseVersion,
+        target_base_values: mutation.baseValues as Json,
+        target_patch: mutation.patch as Json
+      });
+
+      if (error) {
+        setMessage("保存失败；未覆盖云端数据，请检查字段组合后重试。");
+        setSaving(false);
+        return;
+      }
+      const result = data as unknown as MutationResult;
+      form.dataset.dirty = "false";
+      setMessage(getMutationOutcomeLabel(result));
       setSaving(false);
-      return;
-    }
-
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("apply_workspace_mutation", {
-      target_mutation_id: mutation.id,
-      target_device_id: mutation.deviceId,
-      target_object_type: mutation.objectType,
-      target_object_id: mutation.objectId,
-      target_base_version: mutation.baseVersion,
-      target_base_values: mutation.baseValues as Json,
-      target_patch: mutation.patch as Json
-    });
-
-    if (error) {
-      setMessage("保存失败；未覆盖云端数据，请检查字段组合后重试。");
+      router.refresh();
+    } catch {
+      setMessage("保存未完成，修改仍保留在当前页面；请检查网络后重试。");
+    } finally {
+      savingRef.current = false;
       setSaving(false);
-      return;
     }
-    const result = data as unknown as MutationResult;
-    setMessage(getMutationOutcomeLabel(result));
-    setSaving(false);
-    router.refresh();
   }
 
   return (

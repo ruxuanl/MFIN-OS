@@ -3701,6 +3701,15 @@ export type Database = {
         }
         Returns: string
       }
+      reserve_my_ai_usage_for_provider: {
+        Args: {
+          target_analysis_kind: string
+          target_input_fingerprint: string
+          target_reserve_hkd_cents: number
+          target_provider: string
+        }
+        Returns: string
+      }
       resolve_calendar_sync_conflict: {
         Args: { target_conflict_id: string; target_resolution: string }
         Returns: string

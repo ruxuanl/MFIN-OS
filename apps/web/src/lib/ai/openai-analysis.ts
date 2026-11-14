@@ -3,7 +3,8 @@ import "server-only";
 import OpenAI from "openai";
 
 import { applicationPackMaxOutputTokens, applicationPackSchema, packInstructions, type PackPayload } from "@/lib/ai/application-pack";
-import { getOpenAiConfig } from "@/lib/config";
+import { getAiProvider, getOpenAiConfig } from "@/lib/config";
+import { parseStructuredResult } from "@/lib/ai/structured-result";
 
 export const resumePromptVersion = "resume_analysis_v1";
 export const jdMatchPromptVersion = "jd_match_v1";
@@ -85,6 +86,14 @@ const jdMatchSchema = {
 } as const;
 
 function resumeContent(resume: ResumePayload) {
+  if (getAiProvider() === "deepseek") {
+    if (!resume.extractedText.trim()) throw new Error("resume_text_unavailable");
+    if (resume.extractedText.length > 60_000) throw new Error("ai_input_too_large");
+    return [{
+      type: "input_text" as const,
+      text: `只分析已提取的简历文字与结构，没有提供视觉排版。layoutScope 必须为 content_only，layoutScore 必须为 0（未评估）。\n\n简历正文：\n${resume.extractedText}`
+    }];
+  }
   if (resume.mimeType === "application/pdf") {
     return [
       {
@@ -118,17 +127,31 @@ async function callStructured(
 ): Promise<AiCallResult> {
   // A caller may raise the output bound (application packs need 4000 tokens); it stays explicit.
   const config = { ...getOpenAiConfig(), ...(maxOutputTokens ? { maxOutputTokens } : {}) };
-  const client = new OpenAI({ apiKey: config.apiKey });
-  const response = await client.responses.create({
+  const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL, maxRetries: 0, timeout: 60_000 });
+  let response: OpenAI.Responses.Response;
+  try {
+    response = await client.responses.create({
     model: config.model,
     store: false,
-    safety_identifier: safetyIdentifier,
+    ...(config.provider === "openai" ? { safety_identifier: safetyIdentifier } : { reasoning: { effort: "none" as const }, temperature: 0 }),
     max_output_tokens: config.maxOutputTokens,
+    instructions: "只返回符合所给 JSON Schema 的单个 JSON 对象。不要添加 Markdown、代码围栏、前言或结语。JSON 字符串内的换行必须转义。"
+      + (config.provider === "deepseek" ? `\n必须返回全部 required 字段，包括常量字段。JSON Schema：${JSON.stringify(schema)}` : ""),
     input,
     text: { format: { type: "json_schema", name: schemaName, strict: true, schema } }
-  });
-  if (!response.output_text || !response.usage) throw new Error("openai_incomplete_response");
-  const parsed = JSON.parse(response.output_text) as Record<string, unknown>;
+    });
+  } catch (error) {
+    const status = error && typeof error === "object" && "status" in error ? error.status : null;
+    if (typeof status === "number" && [400, 401, 402, 403, 404, 422, 429].includes(status)) throw new Error("ai_provider_rejected");
+    throw new Error("ai_usage_unsettled");
+  }
+  // A generated but unusable response may still be billed. Keep its reservation.
+  if (response.status !== "completed" || !response.output_text || !response.usage) throw new Error("ai_usage_unsettled");
+  if (![response.usage.input_tokens, response.usage.output_tokens].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+    throw new Error("ai_usage_unsettled");
+  }
+  let parsed: Record<string, unknown>;
+  try { parsed = parseStructuredResult(response.output_text, schema); } catch { throw new Error("ai_usage_unsettled"); }
   return {
     result: parsed,
     model: response.model,
@@ -139,7 +162,15 @@ async function callStructured(
 }
 
 export function analyzeResume(safetyIdentifier: string, resume: ResumePayload) {
-  return callStructured(safetyIdentifier, "resume_analysis", resumeSchema, [{
+  const schema = getAiProvider() === "deepseek" ? {
+    ...resumeSchema,
+    properties: {
+      ...resumeSchema.properties,
+      layoutScore: { type: "integer", minimum: 0, maximum: 0 },
+      layoutScope: { type: "string", enum: ["content_only"] }
+    }
+  } : resumeSchema;
+  return callStructured(safetyIdentifier, "resume_analysis", schema, [{
     role: "user",
     content: [
       ...resumeContent(resume),

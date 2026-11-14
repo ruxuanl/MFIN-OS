@@ -15,7 +15,6 @@ export function EmptyWorkspace({
   return (
     <section className="empty-workspace">
       <div className="empty-icon"><Icon name={icon} size={22} /></div>
-      <p className="empty-kicker">M1 · Structure ready</p>
       <h2>{title}</h2>
       <p>{description}</p>
       <div className="boundary-note"><span />{note}</div>

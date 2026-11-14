@@ -56,13 +56,12 @@ describe("navigation update indicators", () => {
     expect([...hrefs]).toEqual(["/calendar", "/status"]);
   });
 
-  it("keeps the font boost scoped to the workspace and renders an update dot", () => {
+  it("renders update dots and keeps notification read receipts owner-scoped", () => {
     const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
     const activeLink = readFileSync(new URL("../components/active-link.tsx", import.meta.url), "utf8");
     const readReceipt = readFileSync(new URL("../components/notification-read-receipt.tsx", import.meta.url), "utf8");
     const reportActions = readFileSync(new URL("../app/(app)/reports/actions.ts", import.meta.url), "utf8");
 
-    expect(styles).toContain(".main-canvas { --workspace-font-boost: 2px;");
     expect(styles).toContain(".navigation-update-dot {");
     expect(activeLink).toContain('className="navigation-update-dot"');
     expect(readReceipt).toContain("markReportNotificationsRead");

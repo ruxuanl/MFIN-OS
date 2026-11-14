@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { generateReportAction } from "@/app/(app)/reports/actions";
-import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { SubmitButton } from "@/components/operation-feedback";
 import { ReportSection } from "@/components/report-section";
@@ -36,30 +35,28 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     <div className="page-shell today-page report-page">
       <PageHeader
         eyebrow={dateFormatter.format(new Date())}
-        title="今天，先做重要的事。"
-        description="固定日程、必须事项与前三项行动汇成一份可在两分钟内读完的简报；每条结论都保留排序依据与数据截止点。"
-        action={<span className="phase-badge">M5 · Daily brief</span>}
+        title="今日行动"
+        description="先处理重要的事，再安排今天。"
+        action={<Link className="quiet-button" href="/calendar">查看日程</Link>}
       />
       {notice && notices[notice] ? <p className="status-notice">{notices[notice]}</p> : null}
 
       <section className="focus-card report-focus-card">
-        <div className="focus-heading">
-          <div className="focus-icon"><Icon name="sparkle" size={20} /></div>
-          <div><p>Top focus</p><h2>{focus[0]?.title ?? "等待生成第一份晨间简报"}</h2></div>
-          <span>{focus.length} / 3</span>
-        </div>
-        <p className="focus-copy">{focus[0]?.reason ?? "开启报告权限后，可用现有 Action 与 Calendar 数据生成；数据未就绪时不会制造占位结论。"}</p>
-        <div className="focus-line" />
+        <div className="focus-heading"><div><h2>今日重点</h2></div><span>{focus.length} / 3</span></div>
+        {focus.length ? <ol className="today-focus-list">{focus.slice(0, 3).map((item, index) => <li key={item.id}>
+          <span>{index + 1}</span><div><strong>{item.title}</strong><p>{item.reason}</p></div>
+          {item.target_path ? <Link className="quiet-link" href={item.target_path}>查看</Link> : null}
+        </li>)}</ol> : <p className="empty-focus">生成晨间简报后，在这里查看今天最重要的行动。</p>}
         <div className="report-meta-line">
           <span>{morning ? `数据截止 ${cutoffFormatter.format(new Date(morning.data_cutoff_at))}` : schedule ? formatSchedule(schedule) : "默认每天 08:00"}</span>
           <span>{strategyLabel(morning?.generation_strategy)}</span>
-          <span>{unavailable} 个来源尚不可用</span>
+          <Link href="/status">{unavailable ? `${unavailable} 个来源待检查 ↗` : "查看来源状态 ↗"}</Link>
         </div>
       </section>
 
       {!morning ? (
         <section className="report-empty-callout">
-          <div><p className="page-eyebrow">Morning brief</p><h2>{data.reportPermission.allowed ? "生成今天的行动简报" : "报告权限尚未开启"}</h2><p>{data.reportPermission.allowed ? "将从隔离数据库读取现有行动与日历镜像，生成不可变版本。" : "到状态中心开启“报告生成”；隐私锁开启时服务器仍会拒绝执行。"}</p></div>
+          <div><h2>{data.reportPermission.allowed ? "生成今天的行动简报" : "报告权限尚未开启"}</h2><p>{data.reportPermission.allowed ? "根据现有行动与日程，整理今天的安排。" : "到状态中心开启“报告生成”；隐私锁开启时服务器仍会拒绝执行。"}</p></div>
           {data.reportPermission.allowed ? <form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="primary-button" pendingLabel="正在生成…">生成晨间简报</SubmitButton></form> : <Link className="primary-button" href="/status">检查报告权限</Link>}
         </section>
       ) : (
@@ -71,7 +68,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           <ReportSection section="schedule" items={grouped.get("schedule") ?? []} />
           <ReportSection section="must_do" items={grouped.get("must_do") ?? []} />
           <ReportSection section="deadline" items={grouped.get("deadline") ?? []} />
-          <ReportSection section="focus" items={focus} />
+
         </div>
         <aside className="report-side-column">
           <ReportSection section="internship" items={grouped.get("internship") ?? []} compact />

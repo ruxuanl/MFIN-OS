@@ -28,7 +28,6 @@ export async function AcademicWorkspace({
         eyebrow="HKU MFin"
         title="学业"
         description="按 Module 与课程组织长期状态和行动。M3 只建立课程表与行动；课纲解析、资料和笔记留在 M10。"
-        action={<span className="phase-badge">M3 · Course table</span>}
       />
       <WorkspaceNotice notice={notice} />
       <WorkspaceSnapshotCache snapshot={{

@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 import { analyzeJdMatch, analyzeResume, jdMatchPromptVersion, resumePromptVersion } from "@/lib/ai/openai-analysis";
 import { requireUser } from "@/lib/auth/session";
-import { getOpenAiConfig, isOpenAiConfigured, isResumeWorkspaceEnabled } from "@/lib/config";
+import { getAiCacheScope, getOpenAiConfig, isOpenAiConfigured, isResumeWorkspaceEnabled } from "@/lib/config";
 import { extractResumeFile, ResumeFileValidationError } from "@/lib/resumes/file-intake";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -22,6 +22,7 @@ function safeFilename(value: string) {
 function analysisNotice(error: unknown) {
   const message = error instanceof Error ? error.message.toLocaleLowerCase("en-US") : "";
   if (message.includes("ai_cached")) return "ai_cached";
+  if (message.includes("ai_usage_unsettled")) return "ai_usage_unsettled";
   if (message.includes("budget")) return "ai_budget_exceeded";
   if (message.includes("permission") || message.includes("privacy")) return "ai_permission_required";
   return "ai_failed";
@@ -136,10 +137,11 @@ async function loadResume(versionId: string, userId: string) {
 async function reserve(kind: "resume" | "jd_match", fingerprint: string) {
   const config = getOpenAiConfig();
   const supabase = await createClient();
-  const result = await supabase.rpc("reserve_my_ai_usage", {
+  const result = await supabase.rpc("reserve_my_ai_usage_for_provider", {
     target_analysis_kind: kind,
     target_input_fingerprint: fingerprint,
-    target_reserve_hkd_cents: config.reserveHkdCents
+    target_reserve_hkd_cents: config.reserveHkdCents,
+    target_provider: config.provider
   });
   if (result.error || !result.data) throw new Error(result.error?.message ?? "ai_reservation_failed");
   return { usageId: result.data, config, supabase };
@@ -156,7 +158,7 @@ export async function analyzeResumeVersion(formData: FormData) {
   try {
     const resume = await loadResume(versionId, user.id);
     const fingerprint = createHash("sha256")
-      .update(`resume:${resume.version.content_sha256}:${resumePromptVersion}`).digest("hex");
+      .update(`${getAiCacheScope()}:resume:${resume.version.content_sha256}:${resumePromptVersion}`).digest("hex");
     const supabase = await createClient();
     const cached = await supabase.from("ai_analyses").select("id")
       .eq("analysis_kind", "resume").eq("input_fingerprint", fingerprint)
@@ -181,7 +183,7 @@ export async function analyzeResumeVersion(formData: FormData) {
     });
     if (completed.error) throw completed.error;
   } catch (error) {
-    if (usageId && !(error instanceof Error && error.message === "ai_cost_reservation_too_small")) {
+    if (usageId && !(error instanceof Error && ["ai_cost_reservation_too_small", "ai_usage_unsettled"].includes(error.message))) {
       const supabase = await createClient();
       await supabase.rpc("fail_my_ai_usage", { target_usage_event_id: usageId, target_error_code: "analysis_failed" });
     }
@@ -241,7 +243,7 @@ export async function analyzeOpportunityJd(formData: FormData) {
     }
     const resume = await loadResume(versionId, user.id);
     const fingerprint = createHash("sha256").update(
-      `jd:${opportunity.data.raw_jd}:${resume.version.content_sha256}:${jdMatchPromptVersion}`
+      `${getAiCacheScope()}:jd:${opportunity.data.raw_jd}:${resume.version.content_sha256}:${jdMatchPromptVersion}`
     ).digest("hex");
     const cached = await supabase.from("ai_analyses").select("id")
       .eq("analysis_kind", "jd_match").eq("input_fingerprint", fingerprint)
@@ -271,7 +273,7 @@ export async function analyzeOpportunityJd(formData: FormData) {
     });
     if (completed.error) throw completed.error;
   } catch (error) {
-    if (usageId && !(error instanceof Error && error.message === "ai_cost_reservation_too_small")) {
+    if (usageId && !(error instanceof Error && ["ai_cost_reservation_too_small", "ai_usage_unsettled"].includes(error.message))) {
       const supabase = await createClient();
       await supabase.rpc("fail_my_ai_usage", { target_usage_event_id: usageId, target_error_code: "analysis_failed" });
     }
