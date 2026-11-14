@@ -1,18 +1,41 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { discoverInternships, decideDiscovery } from "@/app/(app)/internships/discover/actions";
+import { Icon } from "@/components/icon";
 import { SubmitButton } from "@/components/operation-feedback";
 import { radarDefaults, visibleRadarItems, radarDirections, radarRegions, radarTypes, radarPeriods, radarCategory, chineseRadarLocation, radarApplicationEmail, type RadarSnapshot, type RadarItem } from "@/lib/jobs/radar-model";
 
 const initial = { ok: false, message: "" };
-function ChoiceGroup({ title, name, options, selected, onChange, tone }: { title: string; name: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; tone: string }) {
-  return <fieldset className={`radar-filter radar-filter-${tone}`}>
+function ChoiceGroup({ title, name, options, selected, onChange, tone, expanded, pinned, onOpen, onClose }: {
+  title: string; name: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; tone: string;
+  expanded: boolean; pinned: boolean; onOpen: (pin: boolean) => void; onClose: () => void;
+}) {
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const single = name === "publishedWithin";
+  const summary = single ? `最近 ${selected[0]} 天` : selected.length === options.length ? "全部" : selected.join("、") || "请选择";
+  return <fieldset className={`radar-filter radar-filter-${tone}${expanded ? " is-open" : ""}`}
+    onPointerEnter={event => { if (event.pointerType === "mouse" && window.matchMedia("(min-width: 681px) and (hover: hover)").matches) onOpen(false); }}
+    onPointerLeave={() => { if (!pinned && !document.activeElement?.closest(`[data-radar-group="${name}"]`)) onClose(); }}
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onClose(); }}
+    onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); onClose(); trigger.current?.focus(); } }}
+    data-radar-group={name}>
     <legend>{title}</legend>
-    <label className="radar-select-all"><input type="checkbox" checked={selected.length === options.length} onChange={e => onChange(e.target.checked ? options : [])} />全选</label>
-    <div className="radar-choices">{options.map(value => <label key={value} className={selected.includes(value) ? "is-selected" : ""}>
-      <input type="checkbox" name={name} value={value} checked={selected.includes(value)} onChange={e => onChange(e.target.checked ? [...selected, value] : selected.filter(x => x !== value))} />
-      {name === "publishedWithin" ? `${value}天内` : value}
-    </label>)}</div>
+    <button ref={trigger} className="radar-filter-trigger" type="button" aria-expanded={expanded} aria-controls={id}
+      onClick={() => { if (expanded && pinned) onClose(); else onOpen(true); }}>
+      <span><span className="radar-filter-title">{title}</span><strong>{summary}</strong></span><Icon name="arrow" size={16} />
+    </button>
+    <div className="radar-filter-popover" id={id}>
+      <div className="radar-filter-options">
+        <p>{single ? "选择一个时间范围" : "可选择多个条件"}</p>
+        <div className="radar-choices">{options.map(value => <label key={value} className={selected.includes(value) ? "is-selected" : ""}>
+          <input type={single ? "radio" : "checkbox"} name={name} value={value} checked={selected.includes(value)} onChange={event => {
+            onChange(single ? [value] : event.target.checked ? [...selected, value] : selected.filter(item => item !== value));
+          }} />
+          {single ? `${value}天内` : value}
+        </label>)}</div>
+      </div>
+    </div>
   </fieldset>;
 }
 function savedChoices(value: string, options: string[], fallback: string[]) {
@@ -53,7 +76,25 @@ export function InternshipRadar({ snapshot }: { snapshot: RadarSnapshot }) {
   const [directions, setDirections] = useState(() => savedChoices(p.direction, radarDirections, ["二级买方", "二级卖方", "投行"]));
   const [regions, setRegions] = useState(() => savedChoices(p.region, radarRegions, ["香港"]));
   const [types, setTypes] = useState(() => savedChoices(p.internshipType, radarTypes, radarTypes));
-  const [periods, setPeriods] = useState(() => savedChoices(p.publishedWithin ?? "7", radarPeriods, ["7"]));
+  const [periods, setPeriods] = useState(() => [String(Math.max(...savedChoices(p.publishedWithin ?? "7", radarPeriods, ["7"]).map(Number)))]);
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [pinnedFilter, setPinnedFilter] = useState<string | null>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (!filtersRef.current?.contains(event.target as Node)) { setOpenFilter(null); setPinnedFilter(null); }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+  function filterInteraction(name: string) {
+    return {
+      expanded: openFilter === name,
+      pinned: pinnedFilter === name,
+      onOpen: (pin: boolean) => { setOpenFilter(name); setPinnedFilter(current => pin ? name : current === name ? current : null); },
+      onClose: () => { setOpenFilter(current => current === name ? null : current); setPinnedFilter(current => current === name ? null : current); }
+    };
+  }
   const [active, setActive] = useState("全部");
   const items = visibleRadarItems(snapshot.items);
   const categories = ["全部", ...radarDirections.filter(x => directions.includes(x) || items.some(item => radarCategory(item) === x))];
@@ -63,14 +104,14 @@ export function InternshipRadar({ snapshot }: { snapshot: RadarSnapshot }) {
   return <>
     <section className="panel radar-search-panel">
       <form action={action} className="workspace-form">
-        <div className="radar-filter-grid">
-          <ChoiceGroup title="目标方向" name="direction" options={radarDirections} selected={directions} onChange={setDirections} tone="blue" />
-          <ChoiceGroup title="实习类型" name="internshipType" options={radarTypes} selected={types} onChange={setTypes} tone="green" />
-          <ChoiceGroup title="地区" name="region" options={radarRegions} selected={regions} onChange={setRegions} tone="sand" />
-          <ChoiceGroup title="发布时间" name="publishedWithin" options={radarPeriods} selected={periods} onChange={setPeriods} tone="purple" />
+        <div className="radar-filter-grid" ref={filtersRef}>
+          <ChoiceGroup title="目标方向" name="direction" options={radarDirections} selected={directions} onChange={setDirections} tone="blue" {...filterInteraction("direction")} />
+          <ChoiceGroup title="实习类型" name="internshipType" options={radarTypes} selected={types} onChange={setTypes} tone="green" {...filterInteraction("internshipType")} />
+          <ChoiceGroup title="地区" name="region" options={radarRegions} selected={regions} onChange={setRegions} tone="sand" {...filterInteraction("region")} />
+          <ChoiceGroup title="发布时间" name="publishedWithin" options={radarPeriods} selected={periods} onChange={setPeriods} tone="purple" {...filterInteraction("publishedWithin")} />
         </div>
         <div className="radar-search-footer"><label className="radar-keywords">补充关键词（选填）<input name="keywords" defaultValue={p.keywords} maxLength={120} placeholder="例如：行业研究、并购" /></label><SubmitButton className="primary-button" disabled={!valid} pendingLabel="正在搜索并整理…">发现实习</SubmitButton></div>
-        <p className="radar-note">{valid ? `已选 ${directions.length} 个方向、${regions.length} 个地区；检索最近 ${Math.max(...periods.map(Number))} 天。` : "每组请至少勾选一项。"} 时间多选取最宽范围，日期缺失仍需核实。</p>
+        <p className="radar-note">{valid ? `已选 ${directions.length} 个方向、${regions.length} 个地区；检索最近 ${Math.max(...periods.map(Number))} 天。` : "每组请至少勾选一项。"} 发布时间为单选，日期缺失仍需核实。</p>
       </form>
       <details className="radar-note"><summary>搜索说明与权限</summary><p>每轮最多 8 条，间隔 60 秒，每日最多 20 轮。请在设置中开启岗位发现；中文 AI 摘要另需雷达评分、AI 总开关与岗位分析权限，费用沿用月预算。仅使用公开岗位条件，不读取简历画像。</p></details>
       {state.message ? <p role={state.ok ? "status" : "alert"}>{state.message}</p> : null}
