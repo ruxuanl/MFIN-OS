@@ -1,0 +1,8 @@
+runtime-data/
+node_modules/
+artifacts/
+.env
+.env.*
+__pycache__/
+*.pyc
+.venv/
