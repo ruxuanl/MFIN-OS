@@ -16,18 +16,18 @@ export async function AppShell({ user, children }: { user: AppUser; children: Re
       <aside className="sidebar">
         <Link href="/" className="brand" aria-label="MFin OS 首页">
           <span className="brand-mark">M</span>
-          <span><strong>MFin OS</strong><small>Personal workspace</small></span>
+          <span><strong>MFin OS</strong><small>个人工作台</small></span>
         </Link>
 
         <nav className="primary-nav" aria-label="主要导航">
-          <p className="nav-eyebrow">Workspace</p>
+          <p className="nav-eyebrow">工作区</p>
           {primaryNavigation.map((item) => (
             <ActiveLink key={item.href} {...item} hasUpdate={updateHrefs.has(item.href)} />
           ))}
         </nav>
 
         <nav className="secondary-nav" aria-label="辅助导航">
-          <p className="nav-eyebrow">Library</p>
+          <p className="nav-eyebrow">资料与工具</p>
           {secondaryNavigation.map((item) => (
             <ActiveLink key={item.href} {...item} hasUpdate={updateHrefs.has(item.href)} />
           ))}

@@ -10,6 +10,7 @@ import { OpportunityAiPanel } from "@/components/opportunity-ai-panel";
 import { OpportunityCommunicationsPanel } from "@/components/opportunity-communications-panel";
 import { OpportunitySkillsPanel } from "@/components/opportunity-skills-panel";
 import { WorkspaceMutationForm, type MutationField } from "@/components/workspace-mutation-form";
+import { UnsavedChangesGuard, WorkspaceTabs } from "@/components/workspace-ui";
 import { WorkspaceNotice } from "@/components/workspace-notice";
 import { ActionPanel, ConflictPanel, CustomFieldsPanel, TimelinePanel } from "@/components/workspace-detail-panels";
 import { getApplicationDrafts, getApplicationPackage, getApplicationSnapshots } from "@/lib/applications/data";
@@ -74,9 +75,14 @@ export async function OpportunityDetail({
       { value: "active", label: "进行中" }, { value: "archived", label: "已归档" }
     ] })
   ];
+  const primaryFields = new Set(["company", "role_title", "department", "location", "main_stage", "deadline"]);
+  const facts = (entries: MutationField[]) => <dl className="record-facts">{entries.map((field) => <div key={field.name}>
+    <dt>{field.label}{field.locked ? <span className="lock-chip">已锁</span> : null}</dt>
+    <dd>{field.options?.find((option) => option.value === String(item[field.name as keyof typeof item] ?? ""))?.label ?? String(item[field.name as keyof typeof item] ?? "—")}</dd>
+  </div>)}</dl>;
 
   return (
-    <div className="page-shell detail-page">
+    <UnsavedChangesGuard><div className="page-shell detail-page">
       <Link className="back-link" href={basePath}>← 返回{track === "internship" ? "实习" : "秋招"}表</Link>
       <PageHeader
         eyebrow={`${track === "internship" ? "Internship" : "Graduate"} · v${item.version}`}
@@ -85,12 +91,16 @@ export async function OpportunityDetail({
         action={<span className={`stage-pill stage-${item.main_stage}`}>{stageLabels[item.main_stage as keyof typeof stageLabels] ?? item.main_stage}</span>}
       />
       <WorkspaceNotice notice={notice} />
-      {resumeContext ? <OpportunityAiPanel opportunityId={id} notice={notice} data={resumeContext} /> : null}
+
       <ConflictPanel conflicts={data.conflicts} returnTo={returnTo} />
-      <div className="detail-grid">
+      <WorkspaceTabs initialTab={notice && /^(ai_|jd_|resume_|package_|draft_|snapshot_)/.test(notice) ? "materials" : "overview"} tabs={[
+        { id: "overview", label: "概览", content: <div className="detail-tab-content">
+        {data.actions.length ? <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} /> : null}
         <section className="detail-panel detail-main">
-          <div className="panel-heading"><div><p>Current projection</p><h3>核心字段</h3></div><span className="lock-count">{locked.size} 个字段锁</span></div>
-          <WorkspaceMutationForm objectType="opportunity" objectId={item.id} version={item.version} initialValues={item} fields={fields} />
+          <div className="panel-heading"><div><h3>核心字段</h3></div>{locked.size ? <span className="lock-count">{locked.size} 个字段锁</span> : null}</div>
+          {facts(fields.filter((field) => primaryFields.has(field.name)))}
+          <details className="record-editor"><summary>更多属性</summary>{facts(fields.filter((field) => !primaryFields.has(field.name)))}</details>
+          <details className="record-editor"><summary>编辑核心字段</summary><WorkspaceMutationForm objectType="opportunity" objectId={item.id} version={item.version} initialValues={item} fields={fields} /></details>
         </section>
         {item.raw_jd ? <section className="detail-panel jd-detail-panel">
           <div className="panel-heading">
@@ -112,15 +122,24 @@ export async function OpportunityDetail({
             <pre>{item.raw_jd}</pre>
           </details>
         </section> : null}
+        {data.actions.length === 0 ? <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} /> : null}
         <OpportunitySkillsPanel view={skillsView} opportunityId={item.id} returnTo={returnTo} />
+        </div> },
+        { id: "materials", label: "材料与申请", content: <div className="detail-tab-content">
+        {resumeContext ? <OpportunityAiPanel opportunityId={id} notice={notice} data={resumeContext} /> : null}
         <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
         <ApplicationDraftsPanel drafts={drafts} opportunityId={item.id} returnTo={returnTo} aiConfigured={isOpenAiConfigured()} resumeConfirmed={Boolean(packageView?.package?.selected_resume_version_id)} />
         <ApplicationSubmissionPanel snapshots={snapshots} opportunityId={item.id} mainStage={item.main_stage} returnTo={returnTo} />
+        </div> },
+        { id: "communications", label: "沟通", content: <div className="detail-tab-content">
         <OpportunityCommunicationsPanel links={communications} returnTo={returnTo} />
-        <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} />
+
+        </div> },
+        { id: "history", label: "历史", content: <div className="detail-tab-content">
         <CustomFieldsPanel definitions={data.customFields} values={data.customValues} scope={track} entityType="opportunity" entityId={item.id} returnTo={returnTo} />
         <TimelinePanel timeline={data.timeline} />
-      </div>
-    </div>
+      </div> }
+      ]} />
+    </div></UnsavedChangesGuard>
   );
 }

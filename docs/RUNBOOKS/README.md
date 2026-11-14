@@ -18,3 +18,4 @@
 - `test-environment.md`：搭建自己的隔离 Test 环境（issue #7，D33）。
 - [calendar-connection.md](calendar-connection.md)：Google Calendar 接入、授权失效、初始化故障与幂等重试验证。
 - [gmail-connection.md](gmail-connection.md)：Gmail 只读授权、分批同步与故障恢复。
+- [ai-connection.md](ai-connection.md)：OpenAI / DeepSeek 密钥隔离、模型计价、预算与合成材料验收。

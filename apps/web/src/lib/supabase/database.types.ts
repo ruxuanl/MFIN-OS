@@ -3224,6 +3224,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      manual_radar: {
+        Args: { target_action: string; payload?: Json }
+        Returns: Json
+      }
+      finish_manual_radar: {
+        Args: { target_run_id: string; target_items: Json; target_error: string | null; target_ai?: Json }
+        Returns: undefined
+      }
       claim_gmail_sync_work: { Args: { target_user_id: string; target_token: string }; Returns: Json }
       save_gmail_sync_work: { Args: { target_user_id: string; target_token: string; target_state: Json; target_release: boolean }; Returns: undefined }
       apply_gmail_interview_update: {
@@ -3690,6 +3698,15 @@ export type Database = {
           target_analysis_kind: string
           target_input_fingerprint: string
           target_reserve_hkd_cents: number
+        }
+        Returns: string
+      }
+      reserve_my_ai_usage_for_provider: {
+        Args: {
+          target_analysis_kind: string
+          target_input_fingerprint: string
+          target_reserve_hkd_cents: number
+          target_provider: string
         }
         Returns: string
       }

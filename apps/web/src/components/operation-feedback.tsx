@@ -22,6 +22,7 @@ export function SubmitButton({
   children,
   pendingLabel = "正在处理…",
   disabled,
+  className = "quiet-button",
   type = "submit",
   ...props
 }: SubmitButtonProps) {
@@ -43,6 +44,7 @@ export function SubmitButton({
   return (
     <button
       {...props}
+      className={className}
       aria-busy={submitted || undefined}
       disabled={disabled || pending}
       type={type}

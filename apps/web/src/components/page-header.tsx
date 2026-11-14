@@ -12,7 +12,7 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div>
-        <p className="page-eyebrow">{eyebrow}</p>
+        {/[\u3400-\u9fff]/.test(eyebrow) ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
         <p className="page-description">{description}</p>
       </div>

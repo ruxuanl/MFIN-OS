@@ -29,7 +29,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
 
   return <div className="page-shell report-page review-page">
     <NotificationReadReceipt />
-    <PageHeader eyebrow="Reports & review" title="复盘" description="配置晨报、晚间收尾与周报，并查看每份报告的数据截止、来源健康、规则版本和不可变历史。" action={<span className="phase-badge">M5 · Reports</span>} />
+    <PageHeader eyebrow="Reports & review" title="复盘" description="配置晨报、晚间收尾与周报，并查看每份报告的数据截止、来源健康、规则版本和不可变历史。" action={null} />
     {notice && notices[notice] ? <p className="status-notice">{notices[notice]}</p> : null}
 
     <section className="report-schedule-grid">
