@@ -59,6 +59,22 @@ async function freshCredentials(userId: string, oauth: GmailOAuthConfig) {
   return credentials;
 }
 
+// Re-read only a previously imported message; never list or expand the historical scope.
+export async function readGmailForAnalysis(userId: string, providerMessageId: string) {
+  const { getGmailOAuthConfig } = await import("@/lib/config");
+  const service = createServiceClient();
+  const { data,error } = await service.from("gmail_messages").select("id").eq("user_id",userId).eq("provider_message_id",providerMessageId).maybeSingle();
+  if (error || !data) throw new Error("mail_not_imported");
+  const check = async () => {
+    const { error } = await service.rpc("gmail_insight_work",{ target_user_id: userId,target_action: "check",payload: {} });
+    if (error) throw new Error("mail_permission_denied");
+  };
+  await check();
+  const credentials = await freshCredentials(userId,getGmailOAuthConfig());
+  const client = new GoogleGmailClient(credentials.accessToken,fetch,check);
+  return projectGmailMessage(await client.getMessage(providerMessageId));
+}
+
 async function permissionDecision(userId: string, capabilityKey: string) {
   const service = createServiceClient();
   const [capability, grant, dependencies, grants, connection, lock] = await Promise.all([
