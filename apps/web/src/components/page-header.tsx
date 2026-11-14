@@ -6,7 +6,7 @@ export function PageHeader({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -14,7 +14,7 @@ export function PageHeader({
       <div>
         {/[\u3400-\u9fff]/.test(eyebrow) ? <p className="page-eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
-        <p className="page-description">{description}</p>
+        {description ? <p className="page-description">{description}</p> : null}
       </div>
       {action ? <div className="page-action">{action}</div> : null}
     </header>

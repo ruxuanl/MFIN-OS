@@ -1,3 +1,5 @@
+import type { InsightRow, InboxMailRow } from "@/lib/gmail/insight-types";
+
 export type Json =
   | string
   | number
@@ -14,6 +16,7 @@ export type Database = {
   }
   public: {
     Tables: {
+      gmail_insights: { Row: InsightRow; Insert: Pick<InsightRow,"message_id"|"user_id"> & Partial<InsightRow>; Update: Partial<InsightRow>; Relationships: [] };
       action_dependencies: {
         Row: {
           action_id: string
@@ -3221,9 +3224,12 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      inbox_mail_view: { Row: InboxMailRow; Relationships: [] };
     }
     Functions: {
+      read_my_mailbox: { Args: { target_category?: string; target_priority?: string; target_page?: number }; Returns: Json };
+      edit_my_mail_insight: { Args: { target_message_id: string; target_field: string; target_value?: string }; Returns: undefined };
+      gmail_insight_work: { Args: { target_user_id: string; target_action: string; payload?: Json }; Returns: Json };
       manual_radar: {
         Args: { target_action: string; payload?: Json }
         Returns: Json

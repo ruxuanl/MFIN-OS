@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
+import { runMailAnalysisBatch } from "@/lib/gmail/insight-worker";
 
 import { scheduledRunId } from "@/lib/automation/scheduled-run";
 import { getGmailOAuthConfig, isGmailServerConfigured } from "@/lib/config";
@@ -87,6 +89,7 @@ export async function POST(request: Request) {
   try {
     const result = await runGmailSync(run.user_id, getGmailOAuthConfig());
     await finishRun(run.id, result);
+    after(()=>runMailAnalysisBatch(run.user_id).then(()=>undefined));
     return NextResponse.json({ status: "ok", ...result });
   } catch (error) {
     const code = await failRun(run.id, run.user_id, error);

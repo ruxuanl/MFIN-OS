@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 
 import { hasFreshReauthentication, requireUser } from "@/lib/auth/session";
@@ -10,6 +11,32 @@ import { deleteImportedGmailAttachment, disconnectGmail, runGmailSync } from "@/
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isLinkDecision } from "@/lib/gmail/link-model";
+import { runMailAnalysisBatch } from "@/lib/gmail/insight-worker";
+import { isMailCategory,isMailPriority } from "@/lib/gmail/insight-model";
+
+function inboxReturn(form: FormData) {
+  const value=String(form.get("returnTo") ?? "/inbox");
+  return /^\/inbox(?:\?|$)/.test(value) ? value : "/inbox";
+}
+function inboxNotice(form: FormData,notice: string) {
+  const url=new URL(inboxReturn(form),"http://local.invalid");
+  url.searchParams.set("notice",notice);
+  return url.pathname+url.search;
+}
+export async function editMailInsightAction(formData: FormData) {
+  const user=await requireUser();
+  const id=String(formData.get("messageId") ?? "");
+  const field=String(formData.get("field") ?? "");
+  const value=String(formData.get("value") ?? "");
+  const reset=formData.get("reset")==="true";
+  if(user.isMock || !/^[0-9a-f-]{36}$/i.test(id) || !["category","priority","retry"].includes(field)
+    || !reset && field==="category" && !isMailCategory(value) || !reset && field==="priority" && !isMailPriority(value)) redirect(inboxNotice(formData,"invalid"));
+  const client=await createClient();
+  const { error }=await client.rpc("edit_my_mail_insight",{ target_message_id: id,target_field: field,...(!reset && field!=="retry" ? { target_value: value } : {}) });
+  if(error) redirect(inboxNotice(formData,"mail_failed"));
+  revalidatePath("/inbox");
+  redirect(inboxNotice(formData,field==="retry" ? "mail_queued" : "mail_saved"));
+}
 
 export async function triggerGmailSync() {
   const user = await requireUser();
@@ -30,6 +57,7 @@ export async function triggerGmailSync() {
     }).eq("user_id", user.id).eq("provider", "gmail");
     redirect("/inbox?notice=sync_failed");
   }
+  after(()=>runMailAnalysisBatch(user.id).then(()=>undefined));
   revalidatePath("/inbox"); revalidatePath("/status"); redirect(complete ? "/inbox?notice=synced" : needsConfirmation ? "/inbox?notice=backfill_confirmation_required" : "/inbox?notice=sync_partial");
 }
 export async function setGmailConnectionState(formData: FormData) {
@@ -60,7 +88,7 @@ export async function resolveInboxItemAction(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("resolve_my_inbox_item", { target_item_id: itemId, target_resolution: resolution });
   if (error) redirect("/inbox?notice=resolve_failed");
-  revalidatePath("/inbox"); redirect("/inbox?notice=resolved");
+  revalidatePath("/inbox"); redirect(inboxNotice(formData,"resolved"));
 }
 
 export async function undoGmailUpdateAction(formData: FormData) {
@@ -70,7 +98,7 @@ export async function undoGmailUpdateAction(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("undo_my_gmail_update", { target_update_id: updateId });
   if (error) redirect("/inbox?notice=undo_failed");
-  revalidatePath("/inbox"); redirect("/inbox?notice=undone");
+  revalidatePath("/inbox"); redirect(inboxNotice(formData,"undone"));
 }
 
 export async function deleteGmailAttachmentAction(formData: FormData) {
@@ -78,7 +106,7 @@ export async function deleteGmailAttachmentAction(formData: FormData) {
   const attachmentId = String(formData.get("attachmentId") ?? "");
   if (!attachmentId) redirect("/inbox?notice=invalid");
   try { await deleteImportedGmailAttachment(user.id, attachmentId); } catch { redirect("/inbox?notice=attachment_delete_failed"); }
-  revalidatePath("/inbox"); redirect("/inbox?notice=attachment_deleted");
+  revalidatePath("/inbox"); redirect(inboxNotice(formData,"attachment_deleted"));
 }
 
 export async function decideCommunicationLinkAction(formData: FormData) {
