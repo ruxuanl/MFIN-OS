@@ -17,6 +17,7 @@ describe("navigation contract", () => {
     expect(mobileMoreHrefs).toContain("/calendar");
     expect(mobileMoreHrefs).toContain("/review");
     expect(mobileMoreHrefs).toContain("/status");
+    expect(mobileMoreHrefs).toContain("/interview");
   });
 
   it("keeps more active while visiting a secondary destination", () => {

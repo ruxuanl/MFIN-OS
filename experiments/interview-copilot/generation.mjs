@@ -3,7 +3,7 @@ import {createDeepSeek} from '@ai-sdk/deepseek';
 import {z} from 'zod';
 export const answerSchema=z.object({answer:z.string().max(12000),claims:z.array(z.object({text:z.string().max(4000),kind:z.enum(['source_fact','user_statement','general_knowledge','suggestion']),citation_ids:z.array(z.string())})).max(30),missing_information:z.array(z.string()).max(20),suggested_questions:z.array(z.string()).max(10)});
 export function validateAnswer(answer,hits){const value=answerSchema.parse(answer),ids=new Set(hits.map(h=>h.id));for(const c of value.claims){if(c.citation_ids.some(id=>!ids.has(id)))throw Error('INVALID_CITATION');if(c.kind==='source_fact'&&!c.citation_ids.length)throw Error('MISSING_CITATION');}return value;}
-export function extractiveAnswer(hits){return {answer:hits.length?'已找到以下相关原文。当前为本地证据检索，DeepSeek 生成尚未启用。':'现有材料不足以确认。请补充相关材料，或调整检索关键词。',claims:hits.map(h=>({text:h.text,kind:'source_fact',citation_ids:[h.id]})),missing_information:hits.length?[]:['缺少能支持本问题的材料证据'],suggested_questions:[]};}
+export {extractiveAnswer} from './answers.mjs';
 // Integration seam only: the standalone server never creates or enables this provider.
 // Caller must provide host permission checks + budget reservation/settlement adapters.
 export function createDeepSeekGenerator({apiKey,model,gate,reserve,settle,transport}={}){
