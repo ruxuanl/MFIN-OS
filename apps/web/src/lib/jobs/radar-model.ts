@@ -24,7 +24,15 @@ export function parseRadarPreferences(input: Record<string, unknown>): RadarPref
   return output;
 }
 export function radarQuery(p: RadarPreferences) {
-  return `"${p.region}" ${p.direction} ${p.internshipType} ${p.keywords} internship job responsibilities requirements apply -insurance -"wealth advisor"`.trim();
+  // The old saved defaults contain several alternatives. Requiring every term
+  // favors generic career indexes instead of individual requisitions.
+  const alternatives = (value: string, pattern: RegExp) => {
+    const matches = [...new Set(value.match(pattern)?.map(x => x.toLowerCase()) ?? [])];
+    return matches.length > 1 ? `(${matches.map(x => `"${x}"`).join(" OR ")})` : value;
+  };
+  const direction = alternatives(p.direction, /equity research|investment banking|credit research|asset management|buy.side research|sell.side research/gi);
+  const type = alternatives(p.internshipType, /off-cycle|summer|part-time|winter/gi);
+  return `"${p.region}" ${direction} ${type} ${p.keywords} internship job vacancy -insurance -"wealth advisor"`.trim();
 }
 export function normalizeJobUrl(value: string): string | null {
   try {

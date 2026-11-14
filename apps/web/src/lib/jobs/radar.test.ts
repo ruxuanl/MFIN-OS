@@ -14,6 +14,11 @@ describe("manual internship radar", () => {
     expect(radarQuery(p)).not.toContain(p.profile);
     expect(() => parseRadarPreferences({ ...p, keywords: "me@example.com" })).toThrow("invalid_conditions");
   });
+  it("searches saved multiple directions and types as alternatives", () => {
+    const query = radarQuery({ ...radarDefaults, direction: "equity research investment banking", internshipType: "off-cycle summer internship" });
+    expect(query).toContain('("equity research" OR "investment banking")');
+    expect(query).toContain('("off-cycle" OR "summer")');
+  });
   it("distinguishes listing, closed, explicit evidence and snippet-only results", () => {
     const items = toRadarItems([
       { title: "Research Intern", url: "https://careers.example.com/job/1", raw_content: "Company: Synthetic Capital\nLocation: Hong Kong\nDeadline: 2020-01-01" },
