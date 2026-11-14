@@ -2,13 +2,13 @@
 import { useActionState } from "react";
 import { discoverInternships, decideDiscovery } from "@/app/(app)/internships/discover/actions";
 import { SubmitButton } from "@/components/operation-feedback";
-import { radarDefaults, type RadarSnapshot, type RadarItem } from "@/lib/jobs/radar-model";
+import { radarDefaults, visibleRadarItems, type RadarSnapshot, type RadarItem } from "@/lib/jobs/radar-model";
 
 const initial = { ok: false, message: "" };
 function DiscoveryCard({ item }: { item: RadarItem & { id: string; discoveredAt: string } }) {
   const [state, action, pending] = useActionState(decideDiscovery, initial);
   const inactive = item.status === "added" || item.status === "ignored";
-  return <article className="panel">
+  return <article className="panel" id={`radar-${item.id}`}>
     <p>{item.company} · {item.location}</p><h2>{item.title}</h2>
     <p className="phase-badge">{item.status === "added" ? "已加入候选" : item.status === "ignored" ? "已忽略" : item.kind === "closed" ? "已关闭／过期" : "待核实"}</p>
     <p>{item.kind === "job" ? "疑似具体岗位页" : item.kind === "closed" ? "证据提示岗位关闭" : "页面类型待确认，可能是列表或文章"} · {item.evidenceKind === "page_text" ? "已取得页面文本，开放状态待核实" : "仅搜索摘要，证据不足"}</p>
@@ -34,6 +34,7 @@ function DiscoveryCard({ item }: { item: RadarItem & { id: string; discoveredAt:
 export function InternshipRadar({ snapshot }: { snapshot: RadarSnapshot }) {
   const [state, action] = useActionState(discoverInternships, initial);
   const p = snapshot.preferences ?? radarDefaults;
+  const items = visibleRadarItems(snapshot.items);
   return <>
     <section className="panel">
       <form action={action} className="workspace-form">
@@ -53,8 +54,9 @@ export function InternshipRadar({ snapshot }: { snapshot: RadarSnapshot }) {
     </section>
     <section className="workspace-section"><h2>待确认发现结果</h2>
       <p>搜索索引可能滞后，不能证明仍在招聘。添加前请打开来源核对；加入候选后仍需本人选择追踪。</p>
-      {!snapshot.items.length ? <p>暂无发现结果。可发起一轮真实搜索；无结果时不会填充演示岗位。</p> : null}
-      {snapshot.items.map(item => <DiscoveryCard key={(item as RadarItem & { id: string }).id} item={item as RadarItem & { id: string; discoveredAt: string }} />)}
+      <p>优先展示具体金融岗位；明显的面经、论坛与教练资源已隐藏。</p>
+      {!items.length ? <p>暂无可展示的发现结果。可调整条件重新搜索；不会填充演示岗位。</p> : null}
+      {items.map(item => <DiscoveryCard key={(item as RadarItem & { id: string }).id} item={item as RadarItem & { id: string; discoveredAt: string }} />)}
     </section>
     <details><summary>最近搜索记录</summary>{snapshot.runs.map(run => <p key={run.id}>{new Date(run.created_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })} · {run.status} {run.error ? `· ${run.error}` : ""}</p>)}</details>
   </>;

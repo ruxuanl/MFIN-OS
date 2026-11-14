@@ -46,6 +46,15 @@ export function normalizeJobUrl(value: string): string | null {
     return u.toString().replace(/\/$/, "");
   } catch { return null; }
 }
+export function isNonRecruitingPage(item: Pick<RadarItem, "title" | "url">) {
+  return /\/(?:forum|reel|interview)\//i.test(item.url)
+    || /interview experience|interview questions|coaches,? events|coaches.*resources|面试经验|面经|论坛讨论/i.test(item.title);
+}
+export function visibleRadarItems<T extends RadarItem>(items: T[]): T[] {
+  const rank = (item: RadarItem) => item.kind === "closed" ? 3 : item.kind !== "job" ? 1
+    : /research|credit|bank|investment|financ|analyst|实习.*研究|研究|投行/i.test(item.title) ? 0 : 2;
+  return items.filter(item => !isNonRecruitingPage(item)).sort((a,b) => rank(a)-rank(b));
+}
 export function toRadarItems(results: unknown): RadarItem[] {
   if (!Array.isArray(results)) throw new Error("search_invalid_response");
   const seen = new Set<string>();
@@ -59,6 +68,7 @@ export function toRadarItems(results: unknown): RadarItem[] {
     const pageText = typeof r.raw_content === "string" ? r.raw_content.trim() : "";
     const evidence = (pageText || (typeof r.content === "string" ? r.content : "")).slice(0, 6000);
     const title = r.title.slice(0, 240);
+    if (isNonRecruitingPage({ title, url })) continue;
     const closed = /no longer accepting|position (?:has been )?filled|job (?:has )?expired|applications? (?:are )?closed|已截止|停止招聘/i.test(evidence);
     const job = /intern|实习/i.test(title) && /\/(?:job|jobs|requisition|position|vacancy|view)\/[^/?]+|[?&](?:jobid|job_id|gh_jid)=/i.test(url)
       && !/\b\d+\+?\s+(?:jobs|internships)|jobs in|search results|招聘列表/i.test(title);

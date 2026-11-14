@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { normalizeJobUrl, parseRadarPreferences, radarDefaults, radarQuery, toRadarItems } from "./radar-model";
+import { normalizeJobUrl, parseRadarPreferences, radarDefaults, radarQuery, toRadarItems, visibleRadarItems } from "./radar-model";
 import { searchInternships } from "./tavily";
 vi.mock("server-only", () => ({}));
 afterEach(() => vi.unstubAllEnvs());
@@ -18,6 +18,19 @@ describe("manual internship radar", () => {
     const query = radarQuery({ ...radarDefaults, direction: "equity research investment banking", internshipType: "off-cycle summer internship" });
     expect(query).toContain('("equity research" OR "investment banking")');
     expect(query).toContain('("off-cycle" OR "summer")');
+  });
+  it("hides non-recruiting articles and prioritizes actual finance internships", () => {
+    const items = toRadarItems([
+      {title:"Goldman Sachs Interview Experience & Questions",url:"https://example.com/Interview/questions",content:"Internship interview"},
+      {title:"Bank internship roles",url:"https://example.com/list",content:"Recruitment list"},
+      {title:"Food Technical Internship",url:"https://example.com/jobs/123",content:"Food intern"},
+      {title:"MBA Credit Research Internship",url:"https://example.com/jobs/124",content:"Credit research"}
+    ]);
+    expect(items).toHaveLength(3);
+    const sorted = visibleRadarItems(items);
+    expect(sorted[0].title).toBe("MBA Credit Research Internship");
+    expect(sorted[1].kind).toBe("unconfirmed");
+    expect(items[0].title).toBe("Bank internship roles");
   });
   it("distinguishes listing, closed, explicit evidence and snippet-only results", () => {
     const items = toRadarItems([
