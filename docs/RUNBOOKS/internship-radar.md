@@ -29,3 +29,11 @@ Tavily 的 `TAVILY_API_KEY` 仅存服务器环境，本地为被忽略的 `apps/
 新增迁移 `manual_search_radar` 只能增量应用。AI 依赖本机已有但此前未提交的 D35 DeepSeek 配置与 provider accounting 迁移；这些不属于 #48 增量，发布必须先审阅依赖并确保目标已应用。不得重新 bootstrap 现有库。
 
 部署前确认准确 Vercel team/project/environment 和对应 Supabase；检查服务端 Tavily/DeepSeek 配置、迁移、Google/Supabase 登录回调。未确认目标前不部署任何 Production；本地运行不代表公网已上线。演示：真实登录 → 确认条件 → 发现 → 打开具体来源核验 → 加入候选 → 打开候选池并刷新 → 同一结果再次确认不重复；另一结果忽略后不入候选。
+
+## 2026-11-14 Test 发布记录
+
+用户已明确选择 `hku-mfin-m1-test` 与当前隔离 Test 数据库。公网地址为 [Test 工作台](https://hku-mfin-m1-test.vercel.app)，最新部署 `dpl_Ev5fkALyAGy6oSkGUcgHP2pwXqkH` 已 READY（雷达代码提交 `74489c2`）。没有操作另一个 Production 项目。Vercel 内部的 production 环境标签只表示该 Test 项目的正式域名。
+
+发布使用经过本地 CI 的当前工作区快照，包含用户已有的 UI 和 DeepSeek 依赖；没有为了发布而覆盖、回退或夹带提交那些未提交改动。源码清单及哈希保存在忽略的 `work/radar/deploy-manifest.json`，snapshot 位于 `work/radar/deploy-source`，不含 `.env`、凭据配置或本地业务数据。服务器变量由本机配置安全转存至指定 Test 项目；没有复制 Gmail/Calendar 凭据或 OpenAI 备用密钥。
+
+已验证云端构建、登录页 200、未登录实习页 307、9 个浏览器脚本无服务端密钥，以及本人 Google 登录进入工作台。公网用户点击真实搜索已完成，DeepSeek 匹配成功并结算 HK$0.01，取得具体的 PIMCO 香港信用研究暑期实习公开来源（MBA资格需本人核对，不能推定符合）。最新界面将具体金融岗位置顶、隐藏明显面经/论坛/教练资源，并为发现卡片提供稳定定位链接。点击入库、刷新保留与真实忽略仍须单独验证。
