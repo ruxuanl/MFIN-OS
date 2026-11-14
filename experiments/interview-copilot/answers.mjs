@@ -1,0 +1,1 @@
+export function extractiveAnswer(hits){return {answer:hits.length?'已找到以下相关原文。当前为本地证据检索，DeepSeek 生成尚未启用。':'现有材料不足以确认。请补充相关材料，或调整检索关键词。',claims:hits.map(h=>({text:h.text,kind:'source_fact',citation_ids:[h.id]})),missing_information:hits.length?[]:['缺少能支持本问题的材料证据'],suggested_questions:[]};}

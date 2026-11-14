@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" }
         ]
       },
+      { source: "/interview", headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" }] },
+      { source: "/api/interview-runtime/:path*", headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" }, { key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       {
         source: "/sw.js",
         headers: [

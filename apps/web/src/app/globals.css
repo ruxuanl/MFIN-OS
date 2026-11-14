@@ -1020,3 +1020,5 @@ h2, h3 { font-weight: 600; }
 .radar-keywords { display: grid; gap: 8px; }
 .radar-keywords input { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--paper-elevated); font-size: 14px; }
 .radar-keywords input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+.interview-host-frame { display:block; width:100%; height:calc(100vh - 175px); min-height:720px; border:1px solid var(--line, #dde4da); border-radius:16px; background:#f6f7f3; }

@@ -2,7 +2,7 @@ import {openStorage} from './storage.mjs';
 import {ingestDocument} from './ingest.mjs';
 import {chunkDocument,currentDocuments,retrieve,hybridRetrieve} from './retrieval.mjs';
 import {LocalEmbedding} from './embedding.mjs';
-import {extractiveAnswer} from './generation.mjs';
+import {extractiveAnswer} from './answers.mjs';
 import {renderPdf} from './pdf.mjs';
 import {buildArchive} from './archive.mjs';
 import {questionPolicy,assessSession} from './assessment.mjs';
@@ -27,6 +27,7 @@ export const catalog = {
 };
 export async function createApp(dataDir = new URL('./runtime-data/', import.meta.url),options={}) {
   await mkdir(dataDir,{recursive:true});
+  const appCatalog=options.catalog||catalog;
   const storage=await openStorage(dataDir);let db=storage.state;db.qa_runs??=[];
   const filesDir=new URL('files/',dataDir);await mkdir(filesDir,{recursive:true});db.cleanup_files??=[];
   const embedding=options.embedding===false?null:new LocalEmbedding(options.modelCache);
@@ -99,7 +100,7 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
         await syncArchives();const pdf=await readFile(new URL(session.archive.filename,archiveDir));res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','attachment; filename="'+session.archive.filename+'"');return res.end(pdf);
       }
       if(path!=='/api')throw Error('接口不存在');
-      if(req.method==='GET')return res.end(JSON.stringify(db.locked?{locked:true,projects:[],docs:[],sessions:[],catalog}:{...db,docs:db.docs.map(d=>({...d,chunks:d.chunks.map(({vector,...c})=>c)})),catalog,rag:{mode:embedding?.status==='ready'?'hybrid':'keyword',embedding_status:embedding?.status||'disabled',model:embedding?.model||null,generation:'disabled'},sessions:db.sessions.map(({snapshot,...s})=>s)}));
+      if(req.method==='GET')return res.end(JSON.stringify(db.locked?{locked:true,projects:[],docs:[],sessions:[],catalog:appCatalog}:{...db,docs:db.docs.map(d=>({...d,chunks:d.chunks.map(({vector,...c})=>c)})),catalog:appCatalog,rag:{mode:embedding?.status==='ready'?'hybrid':'keyword',embedding_status:embedding?.status||'disabled',model:embedding?.model||null,generation:'disabled'},sessions:db.sessions.map(({snapshot,...s})=>s)}));
       if(req.method!=='POST'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin)||req.headers['x-local-app']!=='1')throw Error('同源验证失败');
       let raw='';for await(const b of req){raw+=b;if(Buffer.byteLength(raw)>2100000)throw Error('输入过大');}
       const a=JSON.parse(raw);let out={};
@@ -107,7 +108,7 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
       else {
         if(db.locked)throw Error('隐私锁已开启');
         if(a.op==='start'){
-          const job=catalog.jobs.find(j=>j.id===a.job);const resume=catalog.resumes.find(r=>r.id===a.resume);
+          const job=appCatalog.jobs.find(j=>j.id===a.job);const resume=appCatalog.resumes.find(r=>r.id===a.resume);
           if(!job||!resume)throw Error('请先选择岗位和简历版本');
           const selected=db.projects.filter(p=>Array.isArray(a.projects)&&a.projects.includes(p.id));if(!selected.length)throw Error('请至少选择一个知识库');
           out={id:uuid(),project:selected[0].id,projects:selected.map(p=>p.id),job:structuredClone(job),resume:structuredClone(resume),snapshot:structuredClone(currentDocuments(db.docs.filter(d=>selected.some(p=>p.id===d.project)))),turns:[],question:`针对${job.role_title}，请结合所选经历做一分钟自我介绍，并说明你的匹配点。`,state:'active',version:0,follow:false,created_at:new Date().toISOString()};out.timing=questionPolicy(out.question);out.document_version_ids=out.snapshot.map(d=>d.id);db.sessions.push(out);
