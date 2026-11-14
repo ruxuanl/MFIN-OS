@@ -63,10 +63,12 @@ export async function discoverInternships(_previous: RadarActionState, form: For
     const snapshot = finalCheck.data as { runs?: { id: string; status: string }[] } | null;
     if (snapshot?.runs?.find(x => x.id === runId)?.status !== "completed") throw new Error("radar_permission_denied");
     revalidatePath("/internships/discover");
+    revalidatePath("/internships");
     return { ok: true, message: items.length ? `本轮取得 ${items.length} 条真实检索结果，尚未加入候选。${aiWarning}` : "本轮没有找到结果，请调整岗位条件。" };
   } catch (error) {
     if (runId) await createServiceClient().rpc("finish_manual_radar", { target_run_id: runId, target_items: items as unknown as Json, target_error: "search_or_save_failed", target_ai: aiUsage });
     revalidatePath("/internships/discover");
+    revalidatePath("/internships");
     return { ok: false, message: safeError(error) };
   }
 }

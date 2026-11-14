@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { InternshipRadarSection } from "@/components/internship-radar-section";
 
 import { createCandidate, saveWorkspaceView } from "@/app/(app)/workspace-actions";
 import { CandidatePool } from "@/components/candidate-pool";
@@ -80,7 +82,7 @@ export async function OpportunityWorkspace({
           : "内地主攻、香港补充。秋招拥有独立候选池与长期表，不会与实习串线。"}
         action={<span className="phase-badge">M3 · Live workspace</span>}
       />
-      {track === "internship" ? <Link className="secondary-button" href="/internships/discover">发现实习 ↗</Link> : null}
+      {track === "internship" ? <Suspense fallback={<p role="status">正在加载实习雷达…</p>}><InternshipRadarSection /></Suspense> : null}
       <WorkspaceNotice notice={first(search.notice)} />
       <WorkspaceSnapshotCache snapshot={{
         scope,

@@ -42,10 +42,10 @@ export function InternshipRadar({ snapshot }: { snapshot: RadarSnapshot }) {
           <label>地区<input name="region" defaultValue={p.region} maxLength={120} required /></label>
           <label>关键词<input name="keywords" defaultValue={p.keywords} maxLength={120} /></label>
           <label>实习类型<input name="internshipType" defaultValue={p.internshipType} maxLength={120} required /></label>
+          <label className="field-wide"><span>简短确认画像（只用于 AI，不发送给搜索服务）</span><textarea name="profile" defaultValue={p.profile} maxLength={600} rows={4} required /></label>
         </div>
-        <label>简短确认画像（只用于 AI，不发送给搜索服务）<textarea name="profile" defaultValue={p.profile} maxLength={600} rows={3} required /></label>
-        <label><input type="checkbox" name="confirmed" required /> 我确认上述条件与画像；不包含整份简历、证件或联系方式。</label>
-        <p>默认条件来自已确认的 D14 和项目背景，可直接修改。每轮最多 8 条，1 次 Tavily Basic 搜索；60 秒冷却，24 小时最多 20 轮。AI 另计入现有 HK$100 月预算。</p>
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 16 }}><input type="checkbox" name="confirmed" required /> <span>我确认上述条件与画像；不包含整份简历、证件或联系方式。</span></label>
+        <p>默认条件来自已确认的求职偏好，可直接修改。每轮最多 8 条，60 秒后可再次搜索，每日最多 20 轮。搜索额度与 AI 费用分开计算，AI 沿用现有月预算。</p>
         <SubmitButton className="primary-button" pendingLabel="正在联网搜索并整理证据…">发现实习</SubmitButton>
       </form>
       <p>请在设置中开启求职雷达与岗位发现；AI 理由还需雷达评分、AI 总开关与 JD 分析权限。隐私锁会阻止搜索和写入。</p>
