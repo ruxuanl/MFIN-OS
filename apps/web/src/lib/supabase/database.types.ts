@@ -3224,6 +3224,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      manual_radar: {
+        Args: { target_action: string; payload?: Json }
+        Returns: Json
+      }
+      finish_manual_radar: {
+        Args: { target_run_id: string; target_items: Json; target_error: string | null; target_ai?: Json }
+        Returns: undefined
+      }
       claim_gmail_sync_work: { Args: { target_user_id: string; target_token: string }; Returns: Json }
       save_gmail_sync_work: { Args: { target_user_id: string; target_token: string; target_state: Json; target_release: boolean }; Returns: undefined }
       apply_gmail_interview_update: {
