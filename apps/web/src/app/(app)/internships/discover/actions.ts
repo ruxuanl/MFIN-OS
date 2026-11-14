@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
 import { isOpenAiConfigured } from "@/lib/config";
 import { explainRadarItems, getRadarAiConfig } from "@/lib/jobs/radar-ai";
-import { parseRadarPreferences } from "@/lib/jobs/radar-model";
+import { parseRadarPreferences, reuseRadarEvidence, type RadarSnapshot } from "@/lib/jobs/radar-model";
 import { searchInternships } from "@/lib/jobs/tavily";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -33,8 +33,8 @@ export async function discoverInternships(_previous: RadarActionState, form: For
   let aiUsage: Json | undefined;
   let aiWarning = "";
   try {
-    const preferences = parseRadarPreferences(Object.fromEntries(form.entries()));
-    if (form.get("confirmed") !== "on") throw new Error("invalid_conditions");
+    const preferences = parseRadarPreferences({ ...Object.fromEntries(form.entries()), ...Object.fromEntries(["direction", "region", "internshipType", "publishedWithin"].map(key => [key, form.getAll(key).join(",")])) });
+
     if (!process.env.TAVILY_API_KEY) throw new Error("search_not_configured");
     const start = await supabase.rpc("manual_radar", { target_action: "start", payload: preferences });
     if (start.error || typeof start.data !== "string") throw start.error ?? new Error("start_failed");
@@ -42,14 +42,17 @@ export async function discoverInternships(_previous: RadarActionState, form: For
     items = await searchInternships(preferences);
     const check = await supabase.rpc("manual_radar", { target_action: "check", payload: { runId } });
     if (check.error) throw check.error;
+    const original = await supabase.rpc("manual_radar", { target_action: "read" });
+    if (original.error) throw original.error;
+    items = reuseRadarEvidence(items, (original.data as unknown as RadarSnapshot)?.items ?? []);
     if (items.length && isOpenAiConfigured()) {
       try {
         const config = getRadarAiConfig();
         const fingerprint = createHash("sha256").update(JSON.stringify({ preferences, items, runId })).digest("hex");
         const reserve = await supabase.rpc("manual_radar", { target_action: "reserve_ai", payload: { runId, fingerprint, provider: config.provider, reserve: config.reserveHkdCents } });
         if (reserve.error) throw reserve.error;
-        const ai = await explainRadarItems(preferences.profile, items);
-        items = ai.items; aiUsage = ai.usage;
+        const ai = await explainRadarItems([preferences.direction, preferences.region, preferences.internshipType].join("；"), items);
+        items = ai.items; aiUsage = ai.usage; aiWarning = ai.warning ? ` ${ai.warning}` : "";
       } catch (error) {
         const detail = error instanceof Error && ["ai_incomplete_response", "ai_invalid_result", "ai_usage_unsettled"].includes(error.message)
           ? error.message : error && typeof error === "object" && "status" in error && typeof error.status === "number" ? `provider_http_${error.status}` : "permission_budget_or_transport";

@@ -1,5 +1,5 @@
 import "server-only";
-import { radarQuery, toRadarItems, type RadarPreferences } from "./radar-model";
+import { radarDays, radarQuery, toRadarItems, type RadarPreferences } from "./radar-model";
 
 export async function searchInternships(preferences: RadarPreferences, fetcher: typeof fetch = fetch) {
   const key = process.env.TAVILY_API_KEY;
@@ -10,7 +10,7 @@ export async function searchInternships(preferences: RadarPreferences, fetcher: 
       method: "POST", cache: "no-store", signal: AbortSignal.timeout(25_000),
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query: radarQuery(preferences), search_depth: "basic", topic: "general",
-        max_results: 8, include_raw_content: "text", include_answer: false, auto_parameters: false,
+        start_date: new Date(Date.now() - radarDays(preferences) * 86400000).toISOString().slice(0, 10), include_published_date: true, max_results: 8, include_raw_content: "text", include_answer: false, auto_parameters: false,
         exclude_domains: ["instagram.com", "facebook.com", "the-trackr.com"] })
     });
   } catch { throw new Error("search_unavailable"); }

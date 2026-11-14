@@ -958,3 +958,64 @@ h2, h3 { font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Internship discovery: quiet color groups and bookmark navigation. */
+.radar-filter-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+.radar-filter { position: relative; min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--radar-tint); }
+.radar-filter-blue { --radar-tint: #f1f5fc; --radar-accent: #345c99; }
+.radar-filter-green { --radar-tint: #eff7f3; --radar-accent: #326953; }
+.radar-filter-sand { --radar-tint: #faf5ec; --radar-accent: #85632e; }
+.radar-filter-purple { --radar-tint: #f5f1fa; --radar-accent: #745491; }
+.radar-filter legend { padding: 0 6px; font-size: 14px; font-weight: 650; color: var(--radar-accent); }
+.radar-select-all { display: flex; justify-content: flex-end; gap: 6px; align-items: center; font-size: 12px; margin: -6px 0 10px; }
+.radar-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.radar-choices label { display: inline-flex; align-items: center; gap: 7px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.radar-choices label.is-selected { border-color: color-mix(in srgb, var(--radar-accent) 25%, transparent); background: var(--paper-elevated); color: var(--radar-accent); }
+.radar-filter input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--radar-accent); }
+.radar-search-footer { display: flex; align-items: end; gap: 20px; margin-top: 20px; }
+.radar-keywords { flex: 1; font-size: 13px; }
+.radar-note { color: var(--ink-soft); font-size: 12px; line-height: 1.7; }
+.radar-note summary { cursor: pointer; }
+.radar-results-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.radar-results-heading span { color: var(--ink-soft); font-size: 12px; }
+.radar-bookmarks { display: flex; gap: 5px; overflow-x: auto; border-bottom: 1px solid var(--line); padding-top: 12px; }
+.radar-bookmarks button { flex-shrink: 0; padding: 12px 17px; border: 1px solid transparent; border-bottom: 0; border-radius: 10px 10px 0 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.radar-bookmarks button.is-active { background: var(--paper-elevated); border-color: var(--line); color: var(--ink); box-shadow: inset 0 3px 0 var(--green); }
+.radar-bookmarks button span { margin-left: 8px; font-size: 11px; opacity: .65; }
+.radar-result-list { display: grid; gap: 12px; padding-top: 16px; }
+.radar-job { background: var(--paper-elevated); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; overflow-wrap: anywhere; }
+.radar-job-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.radar-job-heading h3 { margin: 0; font-size: 17px; line-height: 1.6; font-weight: 600; }
+.radar-job-facts { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 16px; margin: 18px 0 14px; }
+.radar-job-facts dt { color: var(--ink-soft); font-size: 11px; margin-bottom: 4px; }
+.radar-job-facts dd { margin: 0; font-size: 14px; }
+.radar-source { margin-left: 10px; font-size: 12px; }
+.radar-jd { color: var(--ink-soft); font-size: 12px; line-height: 1.8; margin: 0 0 14px; }
+.radar-jd > span { margin-right: 10px; }
+.radar-job-form { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.radar-evidence { flex: 1; min-width: 160px; font-size: 12px; color: var(--ink-soft); }
+.radar-evidence summary { cursor: pointer; }
+.radar-evidence[open] { flex-basis: 100%; }
+.radar-evidence .field-grid { margin: 16px 0; }
+.radar-job-form .button-row { margin: 0; }
+.radar-job-form button { font-size: 12px; min-height: 34px; padding: 7px 12px; }
+.radar-raw { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+@media (max-width: 680px) {
+  .radar-filter-grid { grid-template-columns: 1fr; gap: 12px; }
+  .radar-search-footer { flex-direction: column; align-items: stretch; gap: 12px; }
+  .radar-results-heading { display: block; }
+  .radar-job { padding: 18px 16px; }
+  .radar-job-facts { grid-template-columns: 1fr 1fr; }
+  .radar-job-facts > div:last-child { grid-column: 1 / -1; }
+  .radar-job-form button { min-height: 44px; }
+}
+@media (prefers-color-scheme: dark) {
+  .radar-filter-blue { --radar-tint: #202a3b; --radar-accent: #aac6fa; }
+  .radar-filter-green { --radar-tint: #202e29; --radar-accent: #a5d9be; }
+  .radar-filter-sand { --radar-tint: #302a21; --radar-accent: #e5c998; }
+  .radar-filter-purple { --radar-tint: #2d2538; --radar-accent: #d3b5ed; }
+}
+
+.radar-keywords { display: grid; gap: 8px; }
+.radar-keywords input { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--paper-elevated); font-size: 14px; }
+.radar-keywords input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
