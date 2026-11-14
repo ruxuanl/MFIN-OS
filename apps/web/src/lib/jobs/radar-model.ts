@@ -1,26 +1,30 @@
 import { parseInternshipJd } from "@/lib/internships/jd-parser";
-export type RadarPreferences = { direction: string; region: string; keywords: string; internshipType: string; profile: string };
+export type RadarPreferences = { direction: string; region: string; keywords: string; internshipType: string; profile: string; publishedWithin?: string };
 export type RadarItem = {
   url: string; title: string; company: string; location: string; deadline: string | null;
   evidence: string; evidenceKind: "page_text" | "snippet"; kind: "job" | "unconfirmed" | "closed";
+  isRecruiting?: boolean; summary?: string; jdSummary?: string; category?: string; locationZh?: string; publishedAt?: string | null;
   reason: string; warning: string; status?: "pending" | "added" | "ignored";
 };
 export type RadarSnapshot = { preferences?: RadarPreferences; items: RadarItem[]; runs: { id: string; status: string; created_at: string; error: string | null }[] };
 export const radarDefaults: RadarPreferences = {
-  direction: "investment banking", region: "Hong Kong", keywords: "",
-  internshipType: "off-cycle",
-  profile: "香港大学 MFin，预计 2027 年毕业；主攻买方研究、卖方研究、投资银行；香港实习优先。工作资格、入职日期、每周天数及技能待本人核实。"
+  direction: "二级买方,二级卖方,投行", region: "香港", keywords: "",
+  internshipType: "日常,暑期", publishedWithin: "7",
+  profile: "仅使用公开岗位条件，不使用个人画像。"
 };
 export function parseRadarPreferences(input: Record<string, unknown>): RadarPreferences {
   const output = {} as RadarPreferences;
-  for (const key of Object.keys(radarDefaults) as (keyof RadarPreferences)[]) {
-    const value = input[key];
+  for (const key of ["direction", "region", "keywords", "internshipType", "profile"] as const) {
+    const value = key === "profile" ? radarDefaults.profile : input[key];
     if (typeof value !== "string" || value.length > (key === "profile" ? 600 : 120)) throw new Error("invalid_conditions");
     output[key] = value.trim();
   }
   if (!output.direction || !output.region || !output.internshipType || !output.profile) throw new Error("invalid_conditions");
   // Search fields are public job conditions, never a CV/contact payload.
   if (/[\w.+-]+@[\w.-]+|https?:|\b\d{8,}\b/u.test([output.direction, output.region, output.keywords, output.internshipType].join(" "))) throw new Error("invalid_conditions");
+  const days = input.publishedWithin ?? "7";
+  if (typeof days !== "string" || !/^(?:1|3|7)(?:,(?:1|3|7))*$/.test(days)) throw new Error("invalid_conditions");
+  output.publishedWithin = days;
   return output;
 }
 export function radarQuery(p: RadarPreferences) {
@@ -30,9 +34,9 @@ export function radarQuery(p: RadarPreferences) {
     const matches = [...new Set(value.match(pattern)?.map(x => x.toLowerCase()) ?? [])];
     return matches.length > 1 ? `(${matches.map(x => `"${x}"`).join(" OR ")})` : value;
   };
-  const direction = alternatives(p.direction, /equity research|investment banking|credit research|asset management|buy.side research|sell.side research/gi);
-  const type = alternatives(p.internshipType, /off-cycle|summer|part-time|winter/gi);
-  return `"${p.region}" ${direction} ${type} ${p.keywords} internship job vacancy -insurance -"wealth advisor"`.trim();
+  const direction = p.direction.includes(",") || radarDirections.includes(p.direction) ? expandChoices(p.direction, directionSearch) : alternatives(p.direction, /equity research|investment banking|credit research|asset management|buy.side research|sell.side research/gi);
+  const type = p.internshipType.includes(",") || radarTypes.includes(p.internshipType) ? expandChoices(p.internshipType, { 日常: '"off-cycle"', 暑期: '"summer"' }) : alternatives(p.internshipType, /off-cycle|summer|part-time|winter/gi);
+  return `${expandChoices(p.region, regionSearch)} ${direction} ${type} ${p.keywords} internship job vacancy -insurance -"wealth advisor"`.trim();
 }
 export function normalizeJobUrl(value: string): string | null {
   try {
@@ -77,8 +81,59 @@ export function toRadarItems(results: unknown): RadarItem[] {
     const deadline = pageText ? parseInternshipJd(pageText.slice(0, 6000)).deadline : null;
     const expired = deadline ? deadline < new Date().toISOString().slice(0, 10) : false;
     items.push({ url, title, company: explicitCompany ?? "未知／待核实", location: explicitLocation ?? "未知／待核实", deadline,
+      publishedAt: sourcePublishedDate(r.published_date, evidence),
       evidence, evidenceKind: pageText ? "page_text" : "snippet", kind: closed || expired ? "closed" : job ? "job" : "unconfirmed",
       reason: "检索命中岗位条件；尚未生成 AI 匹配理由。", warning: "请打开原文核对公司、地点、截止日期和工作资格；未知不代表符合。" });
   }
   return items;
+}
+export const radarDirections = ["二级买方", "二级卖方", "PEVC", "投行", "其他"];
+export const radarRegions = ["北京", "深圳", "上海", "香港", "其他"];
+export const radarTypes = ["日常", "暑期"];
+export const radarPeriods = ["7", "3", "1"];
+const directionSearch: Record<string, string> = { 二级买方: '"asset management" OR "buy side" OR "fund research"', 二级卖方: '"equity research" OR "sell side"', PEVC: '"private equity" OR "venture capital"', 投行: '"investment banking"', 其他: 'finance' };
+const regionSearch: Record<string, string> = { 北京: '"Beijing"', 深圳: '"Shenzhen"', 上海: '"Shanghai"', 香港: '"Hong Kong"', 其他: '(China OR Asia -Beijing -Shenzhen -Shanghai -"Hong Kong")' };
+function expandChoices(value: string, dictionary: Record<string, string>) {
+  const values = value.split(",").map(x => dictionary[x] ?? '"' + x + '"');
+  return values.length > 1 ? '(' + values.join(" OR ") + ')' : values[0];
+}
+export function radarDays(p: RadarPreferences) {
+  return Math.max(...(p.publishedWithin ?? "7").split(",").map(Number));
+}
+export function radarCategory(item: RadarItem) {
+  if (item.category && radarDirections.includes(item.category)) return item.category;
+  const text = item.title;
+  if (/private equity|venture capital|私募股权|风险投资|创投/i.test(text)) return "PEVC";
+  if (/investment bank|投行|投资银行|并购/i.test(text)) return "投行";
+  if (/sell.side|证券研究|卖方/i.test(text)) return "二级卖方";
+  if (/asset management|buy.side|基金|买方|资产管理/i.test(text)) return "二级买方";
+  return "其他";
+}
+export function chineseRadarLocation(item: RadarItem) {
+  if (item.locationZh && /[\u3400-\u9fff]/u.test(item.locationZh)) return item.locationZh;
+  return item.location.replace(/Hong Kong/gi, "香港").replace(/Beijing/gi, "北京").replace(/Shenzhen/gi, "深圳").replace(/Shanghai/gi, "上海").replace(/China/gi, "中国").replace(/remote/gi, "远程").replace(/[a-z][a-z .,-]*/gi, "").trim() || "待核实";
+}
+export function radarApplicationEmail(item: RadarItem) {
+  return item.evidence.match(/[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/g)?.find(email => {
+    const before = item.evidence.slice(Math.max(0, item.evidence.indexOf(email) - 100), item.evidence.indexOf(email));
+    return /apply|application|resume|\bcv\b|投递|简历|申请|发送/i.test(before);
+  }) ?? null;
+}
+export function sourcePublishedDate(metadata: unknown, evidence: string): string | null {
+  const raw = typeof metadata === "string" ? metadata : evidence.match(/(?:发布时间|发布日期|date posted|posted on|published)\s*[:：]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})/i)?.[1];
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime()) && date.getTime() <= Date.now() ? date.toISOString().slice(0, 10) : null;
+}
+
+
+export function reuseRadarEvidence(items: RadarItem[], existing: RadarItem[]) {
+  const originals = new Map(existing.map(item => [item.url, item]));
+  return items.map(item => {
+    const original = originals.get(item.url);
+    // Existing evidence is immutable; a regenerated summary must describe that
+    // same evidence, never a newly fetched page attached to an old snapshot.
+    return original ? { ...item, title: original.title, evidence: original.evidence, evidenceKind: original.evidenceKind,
+      company: original.company, location: original.location } : item;
+  });
 }
