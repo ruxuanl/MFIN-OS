@@ -23,4 +23,3 @@ export function pageHref(basePath: string, filters: OpportunityFilters, page: nu
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;
 }
-
