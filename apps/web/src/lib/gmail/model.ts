@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { GMAIL_BODY_LIMIT, GMAIL_RULE_VERSION } from "./constants";
 import type { GmailHeader, GmailMessageResource, GmailPart } from "./google-gmail";
+import { authenticatedSender, detectRecruitmentStage, type RecruitmentStage } from "./recruitment";
 
 export type SourceIdentity = "job_forward" | "personal_forward" | "academic_forward" | "gmail" | "unknown";
 export type MailClassification = "job" | "academic" | "personal" | "irrelevant" | "pending";
@@ -28,6 +29,8 @@ export type MailProjection = {
   actionTitle: string | null;
   actionDueAt: string | null;
   isInterviewInvitation: boolean;
+  recruitmentStage?: RecruitmentStage | null;
+  authenticatedRecruitment?: boolean;
   gmailLink: string;
   contentHash: string;
   attachments: AttachmentProjection[];
@@ -113,14 +116,17 @@ export function projectGmailMessage(message: GmailMessageResource): MailProjecti
   const body = extractBody(message);
   const subject = normalizeText(header(headers, "subject"), 500);
   const senderSummary = normalizeText(header(headers, "from"), 320) || null;
+  const recruitmentStage = detectRecruitmentStage(subject, body, senderSummary ?? "");
+  const authentication = headers?.find((item) => item.name?.toLowerCase() === "authentication-results")?.value ?? "";
+  const authenticatedRecruitment = authenticatedSender(senderSummary ?? "", authentication);
   const sourceIdentity = recoverIdentity(headers, body);
   const result = classify(sourceIdentity, subject, body);
   const actionLanguage = /action required|please (?:complete|confirm|reply|attend)|deadline|due|请.{0,12}(?:完成|确认|参加)|截止/i;
   const interviewLanguage = /interview invitation|invite.{0,24}interview|面试邀请|邀请.{0,12}面试/i;
   const combined = `${subject}\n${body}`;
-  const actionDueAt = extractDate(combined);
+  const actionDueAt = recruitmentStage === "read_confirmed" ? null : extractDate(combined);
   const isInterviewInvitation = result.classification === "job" && interviewLanguage.test(combined) && Boolean(actionDueAt);
-  const needsAction = isInterviewInvitation || actionLanguage.test(combined);
+  const needsAction = recruitmentStage !== "read_confirmed" && (isInterviewInvitation || actionLanguage.test(combined));
   const summary = result.classification === "personal"
     ? normalizeText(needsAction ? `个人事项：${subject || "邮件行动"}${actionDueAt ? `；日期 ${actionDueAt}` : ""}` : "个人事项：未发现明确行动", 2000)
     : normalizeText(message.snippet ?? body.slice(0, 600), 2000) || null;
@@ -153,6 +159,8 @@ export function projectGmailMessage(message: GmailMessageResource): MailProjecti
     actionTitle: needsAction ? normalizeText(subject || "处理邮件行动", 300) : null,
     actionDueAt,
     isInterviewInvitation,
+    recruitmentStage,
+    authenticatedRecruitment,
     gmailLink: `https://mail.google.com/mail/u/0/#all/${message.id}`,
     contentHash: createHash("sha256").update(`${message.id}\u0000${subject}\u0000${body}`).digest("hex"),
     attachments,

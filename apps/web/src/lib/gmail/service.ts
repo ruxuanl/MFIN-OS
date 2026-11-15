@@ -13,6 +13,7 @@ import {
 } from "./constants";
 import { GmailProviderError, GoogleGmailClient } from "./google-gmail";
 import { opportunityMatchesMail, projectGmailMessage, type MailProjection } from "./model";
+import { employerSenderMatches } from "./recruitment";
 import {
   refreshGmailAccessToken,
   revokeGmailToken,
@@ -128,15 +129,25 @@ async function persistMessage(userId: string, projection: MailProjection, client
   const service = createServiceClient();
   const pending = projection.classification === "pending" || projection.confidence < 0.8;
   let targetId: string | null = null;
-  if (projection.isInterviewInvitation) {
-    const { data: opportunities, error } = await service.from("opportunities")
-      .select("id,company,role_title").eq("user_id", userId).eq("record_state", "active");
-    if (error) throw error;
-    const matches = (opportunities ?? []).filter((item) => opportunityMatchesMail(item, projection));
+  if (projection.recruitmentStage || projection.isInterviewInvitation) {
+    const matches: { id: string; company: string; role_title: string; source_url: string | null }[] = [];
+    // Exhaust the owner scope before deciding a match is unique. A truncated
+    // default PostgREST page must not hide a second matching application.
+    for (let offset = 0; ; offset += 500) {
+      const { data: opportunities, error } = await service.from("opportunities")
+        .select("id,company,role_title,source_url").eq("user_id", userId).eq("record_state", "active")
+        .neq("main_stage", "ended").order("id").range(offset, offset + 499);
+      if (error) throw error;
+      matches.push(...(opportunities ?? []).filter((item) => opportunityMatchesMail(item, projection)));
+      if (matches.length > 1 || !opportunities || opportunities.length < 500) break;
+    }
     if (matches.length === 1) targetId = matches[0].id;
+    // Direct employer notifications need an independently recorded employer URL.
+    // Tracking notifications instead use their explicit provider allowlist.
+    if (targetId && projection.recruitmentStage !== "read_confirmed" && !employerSenderMatches(projection.senderSummary ?? "", matches[0].source_url)) projection.authenticatedRecruitment = false;
   }
-  const autoEligible = Boolean(allowAutomaticUpdates && targetId && projection.isInterviewInvitation && projection.confidence >= 0.98);
-  const itemType = projection.isInterviewInvitation ? "email_update" : projection.needsAction ? "email_action" : "email_information";
+  const autoEligible = Boolean(allowAutomaticUpdates && targetId && projection.recruitmentStage && projection.authenticatedRecruitment);
+  const itemType = projection.recruitmentStage || projection.isInterviewInvitation ? "email_update" : projection.needsAction ? "email_action" : "email_information";
   const inboxClassification = projection.classification === "pending" || projection.classification === "irrelevant"
     ? "pending" : projection.classification;
   const { data: persisted, error: persistError } = await service.rpc("store_gmail_projection", {
@@ -146,7 +157,7 @@ async function persistMessage(userId: string, projection: MailProjection, client
     target_history_id: projection.historyId,
     target_received_at: projection.receivedAt,
     target_source_identity: projection.sourceIdentity,
-    target_classification: projection.classification,
+    target_classification: projection.recruitmentStage ? "job" : projection.classification,
     target_sender_summary: nullableRpcText(projection.senderSummary),
     target_subject: projection.subject,
     target_summary: nullableRpcText(projection.summary),
@@ -154,11 +165,11 @@ async function persistMessage(userId: string, projection: MailProjection, client
     target_needs_action: projection.needsAction,
     target_action_title: nullableRpcText(projection.actionTitle),
     target_action_due_at: nullableRpcText(projection.actionDueAt),
-    target_confidence: projection.confidence,
+    target_confidence: autoEligible ? 0.99 : projection.confidence,
     target_evidence_excerpt: nullableRpcText(projection.evidenceExcerpt),
     target_content_hash: projection.contentHash,
     target_item_type: itemType,
-    target_inbox_classification: inboxClassification,
+    target_inbox_classification: projection.recruitmentStage ? "job" : inboxClassification,
     target_inbox_title: (projection.actionTitle ?? projection.subject) || "邮件信息",
     target_inbox_summary: projection.summary ?? "邮件已按最小数据原则保存。",
     target_target_type: nullableRpcText(targetId ? "opportunity" : null),
@@ -211,16 +222,17 @@ async function persistMessage(userId: string, projection: MailProjection, client
   if (autoEligible && targetId) {
     const decision = await permissionDecision(userId, "gmail.rules_status_update");
     if (decision.allowed) {
-      const { error } = await service.rpc("apply_gmail_interview_update", {
+      const { data: updateId, error } = await service.rpc("apply_gmail_recruitment_update", {
         target_user_id: userId,
         target_inbox_item_id: stored.inbox_item_id,
-        target_opportunity_id: targetId
+        target_opportunity_id: targetId,
+        target_stage: projection.recruitmentStage!
       });
       if (error) throw error;
-      updated = true;
+      updated = Boolean(updateId);
     }
   }
-  return { created: true, pending: pending || (projection.isInterviewInvitation && !updated), updated };
+  return { created: true, pending: pending || (Boolean(projection.recruitmentStage || projection.isInterviewInvitation) && !updated), updated };
 }
 
 export async function initializeGmailConnection(userId: string, credentials: GmailCredentials) {

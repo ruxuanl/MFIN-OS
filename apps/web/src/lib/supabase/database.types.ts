@@ -1623,6 +1623,7 @@ export type Database = {
       }
       gmail_updates: {
         Row: {
+          applied_version: number | null
           action_id: string | null
           applied_at: string
           audit_event_id: string
@@ -1639,6 +1640,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          applied_version?: number | null
           action_id?: string | null
           applied_at?: string
           audit_event_id: string
@@ -1655,6 +1657,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          applied_version?: number | null
           action_id?: string | null
           applied_at?: string
           audit_event_id?: string
@@ -3227,6 +3230,10 @@ export type Database = {
       inbox_mail_view: { Row: InboxMailRow; Relationships: [] };
     }
     Functions: {
+      apply_gmail_recruitment_update: {
+        Args: { target_user_id: string; target_inbox_item_id: string; target_opportunity_id: string; target_stage: string };
+        Returns: string | null;
+      };
       read_my_mailbox: { Args: { target_category?: string; target_priority?: string; target_page?: number }; Returns: Json };
       edit_my_mail_insight: { Args: { target_message_id: string; target_field: string; target_value?: string }; Returns: undefined };
       gmail_insight_work: { Args: { target_user_id: string; target_action: string; payload?: Json }; Returns: Json };
