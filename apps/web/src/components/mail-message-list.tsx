@@ -7,17 +7,26 @@ import type { MailListRow } from "@/lib/gmail/insight-types";
 
 const receivedTime = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
 
-export function MailMessageList({ initialMessages, total, category, priority, initialPage }: {
-  initialMessages: MailListRow[]; total: number; category?: MailCategory; priority?: MailPriority; initialPage: number;
+export function MailMessageList({ initialMessages, total, category, priority, initialPage, refreshedMail }: {
+  initialMessages: MailListRow[]; total: number; category?: MailCategory; priority?: MailPriority; initialPage: number; refreshedMail?: MailListRow;
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [nextPage, setNextPage] = useState(initialPage + 1);
   const [hasMore, setHasMore] = useState(initialPage * 30 < total);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [appliedDetail, setAppliedDetail] = useState("");
   const viewport = useRef<HTMLDivElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   const request = useRef<AbortController | null>(null);
+
+  // Detail revalidation can update a row from any loaded batch, without moving
+  // the reader when the drawer opens or closes.
+  const detailVersion = refreshedMail ? JSON.stringify(refreshedMail) : "";
+  if (refreshedMail && detailVersion !== appliedDetail) {
+    setAppliedDetail(detailVersion);
+    setMessages(current => current.map(mail => mail.id === refreshedMail.id ? refreshedMail : mail));
+  }
 
   useEffect(() => () => request.current?.abort(), []);
 

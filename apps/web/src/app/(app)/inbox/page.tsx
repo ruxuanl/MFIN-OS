@@ -23,7 +23,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const priority=isMailPriority(params.priority) ? params.priority : undefined;
   const page=Math.max(1,Math.min(100000,Number.parseInt(params.page ?? "1",10)||1));
   const [data,connection,detail]=await Promise.all([getMailbox(user,category,priority,page),getMailboxConnection(user),params.message ? getMailDetail(user,params.message) : Promise.resolve(null)]);
-  const listVersion = createHash("sha256").update(JSON.stringify([data.messages,data.counts,data.total])).digest("hex");
+  const listVersion = createHash("sha256").update(JSON.stringify([data.messages,data.counts,data.total,data.unfinished,data.queued])).digest("hex");
   const back=inboxHref(category,priority,page);
   const configured=isGmailServerConfigured() && !user.isMock;
   const status=connection?.status ?? "disconnected";
@@ -53,7 +53,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       <header className="mail-browser-heading"><div><h2 id="mail-browser-title">{category ? categoryLabels[category] + "邮件" : "全部邮件"}<span className="mail-total">{data.total} 封</span></h2><p>按收到时间排序，向下滚动浏览</p></div>
         <nav className="mail-segments" aria-label="重要程度筛选">{([undefined,...mailPriorities]).map(p => <Link key={p ?? "all"} href={inboxHref(category,p)} scroll={false} aria-current={p === priority ? "page" : undefined}>{p ? priorityLabels[p] : "全部"}</Link>)}</nav>
       </header>
-      <MailMessageList key={[category ?? "all",priority ?? "all",page,listVersion].join(":")} initialMessages={data.messages} total={data.total} category={category} priority={priority} initialPage={page}/>
+      <MailMessageList key={[category ?? "all",priority ?? "all",page,listVersion].join(":")} initialMessages={data.messages} total={data.total} category={category} priority={priority} initialPage={page} refreshedMail={detail ? { id:detail.mail.id,category:detail.mail.category,priority:detail.mail.priority,summary:detail.mail.summary,received_at:detail.mail.received_at,sender_summary:detail.mail.sender_summary } : undefined}/>
     </section>
     </div>
     <div className="mail-legacy-phone">
