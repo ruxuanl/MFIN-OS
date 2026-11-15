@@ -382,3 +382,7 @@ test("resume upload: register_my_resume_version accepts a real storage path (reg
   assert.throws(() => asUser(`${setup}; ${call(`${user}/${version}/resume\\.pdf`)}`), /invalid_resume_version/, "a path with a backslash is still rejected");
   assert.throws(() => asUser(`${setup}; ${call(`${user}/${version}/other.pdf`)}`), /invalid_resume_version/);
 });
+
+test("dashboard recruitment stages: evidence, dedupe, privacy, locks and undo", { skip: !enabled && "set MFIN_TEST_PG=1 to run" }, () => {
+  psqlFile(path.resolve("tests/db/dashboard-recruitment.sql"));
+});

@@ -6,6 +6,7 @@ export const primaryNavigation = [
 ] as const;
 
 export const secondaryNavigation = [
+  { href: "/dashboard", label: "Dashboard", description: "桌面端申请与邮件数据可视化。", icon: "chart" },
   { href: "/interview", label: "模拟面试", description: "项目知识库、语音作答和 PDF 面试复盘记录。", icon: "sparkle" },
   { href: "/calendar", label: "日历同步", description: "查看 Google Calendar 连接、同步进度和冲突。", icon: "calendar" },
   { href: "/review", label: "复盘", description: "查看晨间简报、晚间收尾与每周复盘。", icon: "chart" },

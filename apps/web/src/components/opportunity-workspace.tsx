@@ -29,7 +29,8 @@ function viewHref(basePath: string, view: SavedView) {
     ? view.filters as Record<string, unknown>
     : {};
   const params = new URLSearchParams();
-  for (const key of ["query", "stage", "state"]) {
+  params.set("tab", "tracked");
+  for (const key of ["query", "stage", "substage", "state"]) {
     if (typeof filters[key] === "string" && filters[key]) params.set(key, filters[key]);
   }
   if (Array.isArray(view.sort_spec) && typeof view.sort_spec[0] === "string") params.set("sort", view.sort_spec[0]);
@@ -39,8 +40,10 @@ function viewHref(basePath: string, view: SavedView) {
 
 function pageHref(basePath: string, filters: OpportunityFilters, page: number) {
   const params = new URLSearchParams();
+  params.set("tab", "tracked");
   if (filters.query) params.set("query", filters.query);
   if (filters.stage) params.set("stage", filters.stage);
+  if (filters.substage) params.set("substage", filters.substage);
   if (filters.state && filters.state !== "active") params.set("state", filters.state);
   if (filters.sort && filters.sort !== "updated") params.set("sort", filters.sort);
   if (page > 1) params.set("page", String(page));
@@ -61,6 +64,7 @@ export async function OpportunityWorkspace({
   const filters: OpportunityFilters = {
     query: first(search.query),
     stage: first(search.stage),
+    substage: first(search.substage)?.slice(0, 120),
     state: first(search.state) === "archived" ? "archived" : "active",
     sort: ["deadline", "company"].includes(first(search.sort) ?? "")
       ? first(search.sort) as OpportunityFilters["sort"]
@@ -109,6 +113,7 @@ export async function OpportunityWorkspace({
           <input type="hidden" name="tab" value="tracked" />
           <input aria-label="搜索公司、岗位或地点" name="query" defaultValue={filters.query} placeholder="搜索公司、岗位或地点" />
           <select aria-label="阶段" name="stage" defaultValue={filters.stage ?? ""}><option value="">全部阶段</option>{opportunityStages.map((stage) => <option key={stage} value={stage}>{stageLabels[stage]}</option>)}</select>
+          {filters.substage && <><input type="hidden" name="substage" value={filters.substage} /><span className="phase-chip">{filters.substage} <Link href={`${basePath}?tab=tracked`} aria-label="清除子阶段筛选">×</Link></span></>}
           <select aria-label="记录状态" name="state" defaultValue={filters.state}><option value="active">进行中</option><option value="archived">已归档</option></select>
           <select aria-label="排序" name="sort" defaultValue={filters.sort}><option value="updated">最近更新</option><option value="deadline">截止日期</option><option value="company">公司名称</option></select>
           <SubmitButton className="quiet-button" pendingLabel="正在筛选…">应用</SubmitButton>
@@ -122,7 +127,7 @@ export async function OpportunityWorkspace({
             <form action={saveWorkspaceView}>
               <input type="hidden" name="scope" value={scope} />
               <input type="hidden" name="returnTo" value={basePath} />
-              <input type="hidden" name="filters" value={JSON.stringify({ query: filters.query ?? "", stage: filters.stage ?? "", state: filters.state })} />
+              <input type="hidden" name="filters" value={JSON.stringify({ query: filters.query ?? "", stage: filters.stage ?? "", substage: filters.substage ?? "", state: filters.state })} />
               <input type="hidden" name="sortSpec" value={JSON.stringify([filters.sort])} />
               <input name="name" required maxLength={120} placeholder="视图名称" />
               <SubmitButton pendingLabel="正在保存…">保存</SubmitButton>
