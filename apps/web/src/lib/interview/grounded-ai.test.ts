@@ -3,7 +3,7 @@ const mock = vi.hoisted(() => ({ rpc: vi.fn(), response: vi.fn(), configured: tr
 vi.mock("@/lib/config", () => ({ getOpenAiConfig: () => ({ provider: "deepseek", apiKey: "synthetic", baseURL: "https://api.deepseek.com", model: "deepseek-flash", inputUsdPerMillion: 1, outputUsdPerMillion: 2, usdHkdRate: 7.8, reserveHkdCents: 50 }) }));
 vi.mock("@/lib/supabase/service", () => ({ createServiceClient: () => ({ rpc: mock.rpc }) }));
 vi.mock("openai", () => ({ default: class { responses = { create: mock.response }; } }));
-import { generateGroundedAnswer, validateGroundedOutput } from "./grounded-ai";
+import { generateGroundedAnswer, validateGroundedOutput, validateEvaluation } from "./grounded-ai";
 const hits = [{ id: "doc:1", text: "合成：增长率百分之二。", file: "synthetic.txt", page: 1 }];
 const raw = JSON.stringify({ claims: [{ text: "增长率百分之二。", kind: "source_fact", citation_ids: ["doc:1"] }], missing_information: [] });
 describe("host grounded AI", () => {
@@ -15,6 +15,25 @@ describe("host grounded AI", () => {
   it("refuses unsupported citations and unmarked source claims", () => {
     expect(() => validateGroundedOutput(raw.replace("doc:1", "other:2"), hits)).toThrow("invalid_ai_citation");
     expect(() => validateGroundedOutput(raw.replace('["doc:1"]', "[]"), hits)).toThrow("invalid_ai_citation");
+  });
+  it("uses real AI dimensions for scoring and rejects malformed or out-of-range evaluations after settlement", async () => {
+    const evaluation = { dimensions: [70, 80, 60, 90].map((score, i) => ({ name: `维度${i}`, score, reason: "对应作答中的具体理由" })), strengths: ["先给结论"], improvements: ["补充数据核对步骤"], expression: "先说结论，再讲方法。", reference_answer: "参考：先核对原始数据，再确认统计口径。" };
+    expect(validateEvaluation(evaluation).score).toBe(75);
+    mock.response.mockResolvedValue({ status: "completed", model: "deepseek-flash", output_text: JSON.stringify({ claims: [], missing_information: ["材料不足，无法核对个人事实"], evaluation }), usage: { input_tokens: 100, output_tokens: 100 } });
+    expect(await generateGroundedAnswer("owner", { purpose: "coaching", question: "解释方法？", answer: "先核对来源。", hits: [] })).toHaveProperty("evaluation.score", 75);
+    evaluation.dimensions[0].score = 101;
+    mock.response.mockResolvedValue({ status: "completed", model: "deepseek-flash", output_text: JSON.stringify({ claims: [], missing_information: [], evaluation }), usage: { input_tokens: 100, output_tokens: 100 } });
+    await expect(generateGroundedAnswer("owner", { purpose: "coaching", question: "解释方法？", hits })).rejects.toThrow("未完成");
+    expect(mock.rpc.mock.calls.at(-1)?.[1].target_action).toBe("settle");
+  });
+  it("creates six distinct question suggestions using resume context even without knowledge hits", async () => {
+    const questions = Array.from({ length: 6 }, (_, i) => `如何解释合成经历的第${i + 1}个步骤？`);
+    mock.response.mockResolvedValue({ status: "completed", model: "deepseek-flash", output_text: JSON.stringify({ claims: questions.map(text => ({ text, kind: "suggestion", citation_ids: [] })), missing_information: [] }), usage: { input_tokens: 100, output_tokens: 100 } });
+    const input = { purpose: "question_plan" as const, question: "生成六题", hits: [], context: { jd: "行业研究", resume_excerpts: "合成简历：现金流建模。" } };
+    expect(await generateGroundedAnswer("owner", input)).toHaveProperty("questions", questions);
+    mock.response.mockResolvedValue({ status: "completed", model: "deepseek-flash", output_text: raw, usage: { input_tokens: 100, output_tokens: 100 } });
+    await expect(generateGroundedAnswer("owner", { ...input, hits })).rejects.toThrow("未完成");
+    expect(mock.rpc.mock.calls.at(-1)?.[1].target_action).toBe("settle");
   });
   it("does not spend or invoke the model when evidence is absent or permission is denied", async () => {
     await generateGroundedAnswer("owner", { question: "无依据", hits: [] });

@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { SearchShortcut } from "@/components/search-shortcut";
 import { SubmitButton } from "@/components/operation-feedback";
-import { mobileMoreHrefs, primaryNavigation, secondaryNavigation } from "@/lib/navigation";
+import { mobileMoreHrefs, primaryNavigation, secondaryNavigation, sidebarNavigationGroups } from "@/lib/navigation";
 import { getNavigationUpdateHrefs } from "@/lib/navigation-updates";
 import type { AppUser } from "@/lib/auth/types";
 
@@ -22,17 +22,14 @@ export async function AppShell({ user, children }: { user: AppUser; children: Re
           <span><strong>MFin OS</strong><small>个人工作台</small></span>
         </Link>
 
-        <nav className="primary-nav" aria-label="主要导航">
-          {primaryNavigation.map((item) => (
-            <ActiveLink key={item.href} {...item} hasUpdate={updateHrefs.has(item.href)} />
-          ))}
-        </nav>
-
-        <nav className="secondary-nav" aria-label="辅助导航">
-          {secondaryNavigation.map((item) => (
-            <ActiveLink key={item.href} {...item} hasUpdate={updateHrefs.has(item.href)} />
-          ))}
-        </nav>
+        {sidebarNavigationGroups.map((group) => (
+          <nav key={group.label} className={group.className} aria-label={group.label}>
+            <p className="nav-group-label">{group.label}</p>
+            {group.items.map((item) => (
+              <ActiveLink key={item.href} {...item} hasUpdate={updateHrefs.has(item.href)} />
+            ))}
+          </nav>
+        ))}
 
         <div className="sidebar-footer">
           <div className="user-avatar">{user.displayName.slice(0, 1).toUpperCase()}</div>

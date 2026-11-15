@@ -6,7 +6,7 @@ import { request as httpRequest, type Server } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export type InterviewCatalog = { mode: string; jobs: unknown[]; resumes: unknown[] };
+export type InterviewCatalog = { mode: string; jobs: unknown[]; resumes: unknown[]; deletedResumeIds?: string[] };
 type LocalRuntime = { server: Server; port: number; catalog: InterviewCatalog };
 const state = globalThis as typeof globalThis & { interviewRuntimes?: Map<string, Promise<LocalRuntime>> };
 

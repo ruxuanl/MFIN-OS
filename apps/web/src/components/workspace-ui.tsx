@@ -12,7 +12,7 @@ export function WorkspaceTabs({ tabs, initialTab, parameter = "tab" }: {
   const id = useId();
   const defaultTab = tabs[0].id;
   const [active, setActive] = useState(initialTab ?? tabs[0].id);
-  const selected = tabs.find((tab) => tab.id === active) ?? tabs[0];
+  const selected = tabs.find((tab) => tab.id === active) ?? tabs.find(tab=>tab.id==="tracking" && ["history","communications"].includes(active)) ?? tabs[0];
   useEffect(() => {
     const sync = () => {
       const value = new URL(window.location.href).searchParams.get(parameter);

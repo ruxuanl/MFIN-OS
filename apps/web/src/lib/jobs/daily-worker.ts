@@ -11,7 +11,7 @@ import { getRadarAiConfig } from "./radar-ai";
 import { rankDailyItems } from "./daily-ai";
 import { selectDailyRecommendations } from "./daily-model";
 
-export async function runDailyDiscovery(userId: string) {
+export async function runDailyDiscovery(userId: string, options: { immediate?: boolean } = {}) {
   const service=createServiceClient();
   const work=async(action:string,payload:unknown={})=>{
     const r=await service.rpc("daily_discovery_work",{target_user_id:userId,target_action:action,payload:payload as Json});
@@ -19,7 +19,7 @@ export async function runDailyDiscovery(userId: string) {
   };
   let runId:string|undefined,usage:Json|undefined,items:RadarItem[]=[];
   try{
-    const claim=await work("claim") as {runId:string;profile:string;preferences:Record<string,unknown>}|null;
+    const claim=await work("claim",options.immediate?{immediate:true}:{}) as {runId:string;profile:string;preferences:Record<string,unknown>}|null;
     if(!claim)return {status:"skipped"};
     runId=claim.runId;
     const preferences=parseRadarPreferences(claim.preferences);

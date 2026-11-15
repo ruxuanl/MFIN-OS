@@ -1,0 +1,56 @@
+.materials-page { max-width:1220px; margin-inline:auto; }
+.materials-page .page-header { margin-bottom:28px; }
+.materials-page .material-kicker { color:var(--green); font-size:12px; font-weight:650; letter-spacing:.04em; }
+.materials-page .material-intake { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr); border:1px solid var(--line); border-radius:16px; background:var(--paper-elevated); overflow:hidden; }
+.materials-page .intake-main { padding:32px; }
+.materials-page .intake-main h2 { margin:12px 0; font-size:25px; line-height:1.3; font-weight:600; letter-spacing:-.025em; }
+.materials-page .intake-main p { margin:0 0 28px; color:var(--ink-soft); font-size:14px; line-height:1.65; }
+.materials-page .resume-dropzone { position:relative; display:flex; min-height:210px; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:28px; border:1px dashed var(--line-strong); border-radius:12px; cursor:pointer; background:var(--paper); color:var(--green); transition:background .18s,border-color .18s; }
+.materials-page .resume-dropzone:hover,.materials-page .resume-dropzone:focus-within { border-color:var(--green); background:var(--green-soft); }
+.materials-page .resume-dropzone strong { max-width:100%; overflow-wrap:anywhere; font-size:16px; font-weight:550; text-align:center; }
+.materials-page .resume-dropzone span { color:var(--ink-soft); font-size:12px; }
+.materials-page .resume-file-input { position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; }
+.materials-page .intake-settings { display:grid; align-content:start; gap:16px; padding:30px 32px; border-left:1px solid var(--line); background:var(--paper); }
+.materials-page .intake-settings h3 { margin:0 0 2px; font-size:18px; font-weight:550; }
+.materials-page .intake-settings label { display:grid; gap:7px; color:var(--ink-soft); font-size:12px; font-weight:500; }
+.materials-page .intake-settings input,.materials-page .intake-settings select { box-sizing:border-box; min-width:0; width:100%; padding:11px 12px; border:1px solid var(--line-strong); border-radius:8px; background:var(--paper-elevated); color:var(--ink); font:inherit; font-size:14px; }
+.materials-page .intake-settings input:focus-visible,.materials-page .intake-settings select:focus-visible { outline:2px solid var(--green); outline-offset:2px; }
+.materials-page .intake-settings small { color:var(--ink-soft); font-size:12px; line-height:1.5; }
+.materials-page .intake-advanced summary { color:var(--ink-soft); font-size:12px; cursor:pointer; }
+.materials-page .intake-advanced label { margin-top:12px; }
+.materials-page .intake-settings .primary-button { width:100%; justify-content:center; font-size:14px; border-radius:8px; }
+.materials-page button:disabled { opacity:.5; cursor:wait; }
+.materials-page .resume-budget-strip { padding:16px 0; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; margin:8px 0 28px; }
+.materials-page .resume-budget-strip span { font-size:11px; text-transform:none; }
+.materials-page .resume-budget-strip strong { font-size:13px; font-weight:550; }
+.materials-page .workspace-section-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:22px; }
+.materials-page .workspace-section-heading h2 { font-size:20px; font-weight:600; }
+.materials-page .workspace-section-heading .muted-count { width:auto; max-width:none; flex-shrink:0; white-space:nowrap; font-size:12px; background:none; }
+.materials-page .resume-document-list { gap:0; }
+.materials-page .resume-document-card { border:0; border-radius:0; background:transparent; padding:24px 0; border-top:1px solid var(--line); }
+.materials-page .resume-document-heading { align-items:center; margin-bottom:14px; }
+.materials-page .resume-document-heading p { margin:0 0 5px; font-size:10px; letter-spacing:.05em; color:var(--green); }
+.materials-page .resume-document-heading h3 { margin:0; font-size:18px; font-weight:550; }
+.materials-page .resume-document-heading>span { color:var(--ink-soft); font-size:12px; }
+.materials-page .resume-version-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:16px 18px; border-radius:10px; background:var(--paper); }
+.materials-page .resume-version-row strong { font-size:14px; font-weight:550; overflow-wrap:anywhere; }
+.materials-page .resume-version-row small { display:block; margin-top:7px; color:var(--ink-soft); font-size:12px; }
+.materials-page .resume-version-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.materials-page .resume-version-actions :is(button,a) { font-family:inherit; font-size:12px; white-space:nowrap; min-height:36px; padding:8px 12px; border-radius:7px; }
+.materials-page .resume-delete-button { color:var(--ink-soft); border:0; background:transparent; cursor:pointer; }
+.materials-page .resume-delete-button:hover { color:var(--danger,#a23636); background:var(--paper-elevated); }
+.materials-page .resume-analysis-card { grid-column:1/-1; padding:14px 0 0; border-top:1px solid var(--line); }
+.materials-page .resume-analysis-card summary { display:flex; justify-content:space-between; gap:16px; cursor:pointer; font-size:12px; font-weight:550; color:var(--green); }
+.materials-page .resume-analysis-card summary span { color:var(--ink-soft); font-weight:400; }
+.materials-page .resume-analysis-card[open] .analysis-score-grid { margin-top:18px; }
+.materials-page .analysis-score-grid>div { border:0; border-radius:0; background:transparent; padding:4px 16px 10px 0; }
+.materials-page .analysis-score-grid strong { font-size:26px; font-variant-numeric:tabular-nums; font-weight:500; }
+.materials-page .layout-scope { font-size:12px; color:var(--ink-soft); }
+.resume-delete-dialog { width:min(460px,calc(100vw - 48px)); padding:28px; border:1px solid var(--line); border-radius:16px; background:var(--paper-elevated); color:var(--ink); }
+.resume-delete-dialog::backdrop { background:rgb(0 0 0 / .32); }
+.resume-delete-dialog h2 { margin:0 0 16px; font-size:22px; }
+.resume-delete-dialog p { font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+.resume-dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+.resume-delete-confirm { border:0; border-radius:8px; padding:10px 16px; background:#a23636; color:white; cursor:pointer; }
+.materials-page .resume-dropzone:hover,.materials-page .resume-dropzone:focus-within { background:color-mix(in srgb,var(--green) 7%,var(--paper-elevated)); }
+.materials-page .resume-version-actions .quiet-button { background:var(--paper-elevated); color:var(--ink); border:1px solid var(--line-strong); }

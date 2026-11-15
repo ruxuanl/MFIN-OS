@@ -14,7 +14,7 @@ export type ResumeDocumentWithVersions = ResumeDocument & {
 
 export async function getResumeLibrary(user: AppUser) {
   if (user.isMock || !isResumeWorkspaceEnabled()) {
-    return { documents: [], analyses: [], monthlyHkdCents: 0, aiConfigured: false };
+    return { documents: [], analyses: [], monthlyHkdCents: 0, aiConfigured: false, deletionPending: false };
   }
   const supabase = await createClient();
   const monthStart = new Date();
@@ -30,12 +30,15 @@ export async function getResumeLibrary(user: AppUser) {
   const firstError = [documentResult, versionResult, analysisResult, usageResult]
     .map((result) => result.error).find(Boolean);
   if (firstError) throw firstError;
+  const cleanup=await supabase.rpc("resume_deletion_work",{action:"list"});
+  const deletionPending=Array.isArray(cleanup.data)&&cleanup.data.some(j=>j&&typeof j==="object"&&!Array.isArray(j)&&j.pending===true);
   const versions = versionResult.data ?? [];
   return {
     documents: (documentResult.data ?? []).map((document) => ({
       ...document,
       versions: versions.filter((version) => version.document_id === document.id)
     })),
+    deletionPending,
     analyses: analysisResult.data ?? [],
     monthlyHkdCents: (usageResult.data ?? []).reduce((sum, event) =>
       sum + (event.status === "completed" ? event.actual_hkd_cents ?? 0 : event.reserved_hkd_cents), 0),

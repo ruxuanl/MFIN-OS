@@ -3,12 +3,12 @@ import { SubmitButton } from "@/components/operation-feedback";
 import { linkRuleLabel } from "@/lib/gmail/link-model";
 import type { LinkView } from "@/lib/gmail/links";
 
-export function OpportunityCommunicationsPanel({ links, returnTo }: { links: LinkView[]; returnTo: string }) {
+export function OpportunityCommunicationsPanel({ links, returnTo, title="相关邮件" }: { links: LinkView[]; returnTo: string; title?: string }) {
   const linked = links.filter((link) => link.status === "linked");
   const suggested = links.filter((link) => link.status === "suggested");
   return (
     <section className="detail-panel">
-      <div className="panel-heading"><div><p>Communications</p><h3>相关邮件</h3></div><span className="muted-count">{linked.length}</span></div>
+      <div className="panel-heading"><div><h3>{title}</h3></div><span className="muted-count">{linked.length}</span></div>
       {linked.length === 0 && suggested.length === 0 ? <p className="workspace-empty small-empty">尚无关联邮件。关联建议会出现在收件箱，需你确认。</p> : null}
       <ul className="communication-list">
         {linked.map((link) => <li key={link.id}>

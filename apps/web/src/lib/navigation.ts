@@ -19,6 +19,21 @@ export const secondaryNavigation = [
 
 export const mobileMoreHrefs = secondaryNavigation.map((item) => item.href);
 
+const coreWorkspaceHrefs = new Set<string>(["/dashboard", "/interview"]);
+
+export const sidebarNavigationGroups = [
+  {
+    label: "核心工作区",
+    className: "primary-nav",
+    items: [...primaryNavigation, ...secondaryNavigation.filter((item) => coreWorkspaceHrefs.has(item.href))]
+  },
+  {
+    label: "辅助工具",
+    className: "secondary-nav",
+    items: secondaryNavigation.filter((item) => !coreWorkspaceHrefs.has(item.href))
+  }
+] as const;
+
 export function isNavigationActive(pathname: string, href: string, additionalHrefs: readonly string[] = []) {
   return [href, ...additionalHrefs].some((candidate) =>
     candidate === "/" ? pathname === "/" : pathname === candidate || pathname.startsWith(`${candidate}/`)

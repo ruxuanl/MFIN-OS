@@ -3230,6 +3230,8 @@ export type Database = {
       inbox_mail_view: { Row: InboxMailRow; Relationships: [] };
     }
     Functions: {
+      resume_deletion_work: { Args: {target?: string; action?: string}; Returns: Json }
+      report_ai_work: { Args: { target_user_id: string; target_action: string; payload?: Json }; Returns: Json }
       interview_ai_work: { Args: { target_user_id: string; target_action: string; payload?: Json }; Returns: Json }
       daily_discovery: { Args: { target_action: string; payload?: Json }; Returns: Json };
       daily_discovery_work: { Args: { target_user_id: string; target_action: string; payload?: Json }; Returns: Json };

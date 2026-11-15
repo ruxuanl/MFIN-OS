@@ -1,5 +1,9 @@
 # MFin OS workspace design
 
+## Candidate pool (PC, 2026-11-15)
+
+Each candidate uses three stacked rounded surfaces: cool neutral basic information (company, role, source publication date and location), green application contacts, and warm neutral JD. Long URLs retain their full targets behind short link labels; emails remain visible. Internal LEADERSHIP markers and import-file metadata stay out of the presentation while stored evidence remains unchanged. Source dates are only extracted from explicitly labelled source text; missing values remain unconfirmed. A single `minmax(0,1fr)` list, zero minimum item widths and wrapping prevent imported URLs from expanding the page. Selection, batch triage and promotion controls retain their existing actions. Verified with synthetic email, long-URL and missing-data cases at 960/1440/2560 CSS pixels and in light/dark themes.
+
 ## Internship discovery source information
 
 PC result cards lead with a concrete company and role, followed by sector, internship type and source. A shared tinted overview band separates source date, location and application method with subtle dividers; the date uses a cool neutral tint and actions use the existing green. Source publication and update dates retain their basis; relative dates show a bounded estimate. Undated sources live in a separate disclosure, outside the recent-date result count. The source selector uses native radio semantics for all-web, recruitment sites and public articles. Original evidence and editable confirmation fields remain in a disclosure; candidate addition is the primary footer action. Existing light/dark tokens and phone layouts remain authoritative.

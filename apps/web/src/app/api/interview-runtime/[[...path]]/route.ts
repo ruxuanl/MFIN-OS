@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { loadResumeText } from "@/lib/resumes/text";
 import { callInterviewRuntime, isInterviewLocalEnabled, type InterviewCatalog } from "@/lib/interview/runtime";
 
 export const runtime = "nodejs";
@@ -37,7 +38,9 @@ async function handle(request: Request, context: { params: Promise<{ path?: stri
         client.from("resume_versions").select("id,document_id,version_number,original_filename").eq("user_id", user.id).order("version_number", { ascending: false })
       ]);
       if (jobs.error || documents.error || versions.error) throw new Error("catalog_unavailable");
-      catalog = { mode: "host", jobs: jobs.data || [], resumes: (versions.data || []).flatMap(v => {
+      const deleted=await client.rpc("resume_deletion_work",{action:"list"});if(deleted.error)throw deleted.error;
+      const deletedResumeIds=(Array.isArray(deleted.data)?deleted.data:[]).flatMap(j=>j&&typeof j==="object"&&!Array.isArray(j)&&typeof j.id==="string"?[j.id]:[]);
+      catalog = { deletedResumeIds, mode: "host", jobs: jobs.data || [], resumes: (versions.data || []).flatMap(v => {
         const doc = documents.data?.find(d => d.id === v.document_id);
         return doc ? [{ ...v, label: doc.label, document_kind: doc.document_kind }] : [];
       }) };
@@ -47,10 +50,27 @@ async function handle(request: Request, context: { params: Promise<{ path?: stri
       const chunks: Uint8Array[] = []; let size = 0;
       if (request.body) for await (const chunk of request.body) { size += chunk.length; if (size > 11 * 1024 * 1024) return Response.json({ error: "文件过大" }, { status: 413 }); chunks.push(chunk); }
       body = Buffer.concat(chunks);
-      let command: { op?: string } | null = null;
+      let command: { op?: string; generate?: boolean; resume?: string; resume_text?: string } | null = null;
       if (path === "/api") {
-        try { command = JSON.parse(body.toString("utf8")) as { op?: string }; }
+        try { command = JSON.parse(body.toString("utf8")); }
         catch { return Response.json({ error: "无效 JSON" }, { status: 400 }); }
+      }
+      if(command?.op==="purge_resume")return Response.json({error:"请从材料库删除版本"},{status:403});
+      if (command?.op === "start") {
+        // Never accept client-supplied resume contents as the selected stored version.
+        delete command.resume_text;
+        command.generate = true;
+        {
+          if (user.isMock || !catalog.resumes.some(r => (r as { id: string }).id === command.resume)) {
+            return Response.json({ error: "请先选择本人已保存的简历版本" }, { status: 400 });
+          }
+          const permission = await client.rpc("get_my_permission_decision", { capability_key: "ai.interview" });
+          if (permission.error) return Response.json({ error: "暂时无法核验面试 AI 权限" }, { status: 503 });
+          if (!permission.data?.[0]?.allowed) return Response.json({ error: "请到状态中心开启“面试知识库 AI”及 AI 总开关，再重试。" }, { status: 403 });
+          try { command.resume_text = (await loadResumeText(command.resume!)).slice(0, 100000); }
+          catch { return Response.json({ error: "所选简历正文暂时无法读取，请到材料库检查该版本后重试。" }, { status: 422 }); }
+        }
+        body = Buffer.from(JSON.stringify(command));
       }
       if (!user.isMock && (path === "/api/upload" || command?.op === "import")) {
         const permission = await client.rpc("get_my_permission_decision", { capability_key: "files.upload" });

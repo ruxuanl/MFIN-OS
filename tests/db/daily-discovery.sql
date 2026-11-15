@@ -12,11 +12,12 @@ delete from private.daily_discovery_reports where user_id=auth.uid() and report_
 update private.radar_runs set created_at=now()-interval '1 day',status='completed' where user_id=auth.uid() and created_at>now()-interval '3 minutes';
 set local role service_role;
 do $$ declare a jsonb;b jsonb; begin
- a:=public.daily_discovery_work(auth.uid(),'claim');
+ if (now() at time zone 'Asia/Shanghai')::time < time '09:00' and public.daily_discovery_work(auth.uid(),'claim') is not null then raise exception 'schedule_time_guard_missing'; end if;
+ a:=public.daily_discovery_work(auth.uid(),'claim','{"immediate":true}');
  if a is null then raise exception 'claim_failed'; end if;
  if a->'preferences'->>'direction'<>'二级买方,二级卖方,PEVC' then raise exception 'wrong_directions'; end if;
  perform set_config('daily.test_run',a->>'runId',true);
- b:=public.daily_discovery_work(auth.uid(),'claim');
+ b:=public.daily_discovery_work(auth.uid(),'claim','{"immediate":true}');
  if b is not null then raise exception 'duplicate_claim'; end if;
  if current_setting('request.jwt.claim.sub')<>auth.uid()::text then raise exception 'claims_not_restored'; end if;
  perform public.daily_discovery_work(auth.uid(),'check',jsonb_build_object('runId',a->>'runId'));

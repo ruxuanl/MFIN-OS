@@ -38,7 +38,7 @@ export function ApplicationSubmissionPanel({
           <p className="package-confirmed">已记录投递：{formatDateTime(active.submitted_at)}</p>
           <dl className="snapshot-facts">
             <div><dt>岗位</dt><dd>{active.company} · {active.role_title}</dd></div>
-            <div><dt>简历版本</dt><dd>{active.resume_label ?? "未在投递包中确认"}</dd></div>
+            <div><dt>简历版本</dt><dd>{active.resume_label ?? "未记录简历版本"}</dd></div>
             <div><dt>申请编号</dt><dd>{active.application_reference ?? "—"}</dd></div>
             <div><dt>JD 快照</dt><dd>{active.jd_text ? `${active.jd_text.length.toLocaleString("zh-CN")} 字已保存` : "无原文"}</dd></div>
           </dl>
@@ -48,7 +48,7 @@ export function ApplicationSubmissionPanel({
             <input type="hidden" name="returnTo" value={returnTo} />
             <SubmitButton className="quiet-button" pendingLabel="撤销中…">撤销这条投递记录</SubmitButton>
           </form>
-          <p className="section-note">快照一经保存不可修改；撤销会恢复岗位阶段、投递包和截止行动，并把快照保留为历史。</p>
+          <p className="section-note">快照一经保存不可修改；撤销会恢复岗位阶段、准备状态和截止行动，并把快照保留为历史。</p>
         </div>
       ) : recordableStages.has(mainStage) ? (
         <form action={recordApplicationSubmitted} className="workspace-form compact-form">

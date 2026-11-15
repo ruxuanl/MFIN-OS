@@ -61,14 +61,14 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <h2>继续推进</h2>
         <Link href="/internships?tab=tracked"><Icon name="briefcase" /><span><strong>推进实习申请</strong><small>已追踪岗位与下一步</small></span><Icon name="arrow" size={16} /></Link>
         <Link href="/inbox?category=job&priority=important"><Icon name="inbox" /><span><strong>处理重要求职邮件</strong><small>直接查看需要关注的信息</small></span><Icon name="arrow" size={16} /></Link>
-        <Link href="/review"><Icon name="chart" /><span><strong>晚间收尾</strong><small>完成、继续，或重新安排</small></span><Icon name="arrow" size={16} /></Link>
+        <Link href="/review"><Icon name="chart" /><span><strong>日报与周报</strong><small>回看进展与下一步</small></span><Icon name="arrow" size={16} /></Link>
       </aside>
       </div>
 
       {!morning ? (
         <section className="report-empty-callout">
           <div><h2>{data.reportPermission.allowed ? "生成今天的行动简报" : "报告权限尚未开启"}</h2><p>{data.reportPermission.allowed ? "根据现有行动与日程，整理今天的安排。" : "到状态中心开启“报告生成”；隐私锁开启时服务器仍会拒绝执行。"}</p></div>
-          {data.reportPermission.allowed ? <form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="primary-button" pendingLabel="正在生成…">生成晨间简报</SubmitButton></form> : <Link className="primary-button" href="/status">检查报告权限</Link>}
+          {data.reportPermission.allowed ? <form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="primary-button" pendingLabel="正在生成…">生成日报</SubmitButton></form> : <Link className="primary-button" href="/status">检查报告权限</Link>}
         </section>
       ) : (
         <div className="report-toolbar"><p>{morning.summary}</p><form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="quiet-button" pendingLabel="正在生成…">按最新数据重新生成</SubmitButton></form></div>
@@ -110,7 +110,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         {focus.length ? <ol className="today-focus-list">{focus.slice(0, 3).map((item, index) => <li key={item.id}>
           <span>{index + 1}</span><div><strong>{item.title}</strong><p>{item.reason}</p></div>
           {item.target_path ? <Link className="quiet-link" href={item.target_path}>查看</Link> : null}
-        </li>)}</ol> : <p className="empty-focus">生成晨间简报后，在这里查看今天最重要的行动。</p>}
+        </li>)}</ol> : <p className="empty-focus">生成日报后，在这里查看今天最重要的行动。</p>}
         <div className="report-meta-line">
           <span>{morning ? `数据截止 ${cutoffFormatter.format(new Date(morning.data_cutoff_at))}` : schedule ? formatSchedule(schedule) : "默认每天 08:00"}</span>
           <span>{strategyLabel(morning?.generation_strategy)}</span>
@@ -121,7 +121,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       {!morning ? (
         <section className="report-empty-callout">
           <div><h2>{data.reportPermission.allowed ? "生成今天的行动简报" : "报告权限尚未开启"}</h2><p>{data.reportPermission.allowed ? "根据现有行动与日程，整理今天的安排。" : "到状态中心开启“报告生成”；隐私锁开启时服务器仍会拒绝执行。"}</p></div>
-          {data.reportPermission.allowed ? <form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="primary-button" pendingLabel="正在生成…">生成晨间简报</SubmitButton></form> : <Link className="primary-button" href="/status">检查报告权限</Link>}
+          {data.reportPermission.allowed ? <form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="primary-button" pendingLabel="正在生成…">生成日报</SubmitButton></form> : <Link className="primary-button" href="/status">检查报告权限</Link>}
         </section>
       ) : (
         <div className="report-toolbar"><p>{morning.summary}</p><form action={generateReportAction}><input type="hidden" name="reportType" value="morning" /><input type="hidden" name="returnTo" value="/" /><SubmitButton className="quiet-button" pendingLabel="正在生成…">按最新数据重新生成</SubmitButton></form></div>
