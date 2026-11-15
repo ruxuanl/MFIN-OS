@@ -94,7 +94,45 @@ export async function queueCalendarAction(formData: FormData) {
   });
   if (error) redirect(`/calendar?notice=${error.message.includes("requires") ? "schedule_required" : "queue_failed"}`);
   revalidatePath("/calendar");
-  redirect("/calendar?notice=queued");
+  if (!isCalendarServerConfigured()) redirect("/calendar?notice=queued_not_configured");
+  await triggerCalendarSync();
+}
+
+export async function createScheduledAction(formData: FormData) {
+  const user = await requireUser();
+  if (user.isMock) redirect("/calendar?notice=invalid");
+  const confirm = formData.get("intent") === "sync";
+  const allDay = formData.get("allDay") === "true";
+  let actionId: string;
+  try {
+    const title = formText(formData, "title", 300, true)!;
+    const dueAt = parseCalendarDateTimeLocal(String(formData.get("dueAt") ?? ""));
+    const startAt = parseCalendarDateTimeLocal(String(formData.get("suggestedStartAt") ?? ""));
+    const estimateText = formText(formData, "estimatedMinutes", 8);
+    const estimate = estimateText ? Number(estimateText) : null;
+    const priority = String(formData.get("priority") ?? "normal");
+    if (estimate !== null && (!Number.isInteger(estimate) || estimate < 1 || estimate > 10080)) throw new Error("invalid_estimate");
+    if (!actionPriorities.has(priority)) throw new Error("invalid_priority");
+    if (confirm && (allDay ? !dueAt : !startAt && !dueAt)) redirect("/calendar?notice=schedule_required");
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("actions").insert({
+      user_id: user.id, context_type: "personal", track: "personal", title,
+      due_at: dueAt, suggested_start_at: startAt, estimated_minutes: estimate,
+      priority, completion_criteria: formText(formData, "completionCriteria", 1000)
+    }).select("id").single();
+    if (error || !data) throw error ?? new Error("action_failed");
+    actionId = data.id;
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/calendar?notice=action_failed");
+  }
+  revalidatePath("/calendar");
+  revalidatePath("/");
+  if (!confirm) redirect("/calendar?notice=action_created");
+  const queued = new FormData();
+  queued.set("actionId", actionId);
+  queued.set("allDay", String(allDay));
+  await queueCalendarAction(queued);
 }
 
 export async function triggerCalendarSync() {

@@ -1,7 +1,9 @@
 import "server-only";
-import { radarDays, radarQuery, toRadarItems, type RadarPreferences } from "./radar-model";
+import { radarQuery, toRadarItems, type RadarPreferences } from "./radar-model";
+import { radarSearchDomains } from "./radar-sources";
 
 export async function searchInternships(preferences: RadarPreferences, fetcher: typeof fetch = fetch) {
+  if(preferences.source==="local")throw new Error("local_search_is_not_network_search");
   const key = process.env.TAVILY_API_KEY;
   if (!key) throw new Error("search_not_configured");
   let response: Response;
@@ -10,8 +12,11 @@ export async function searchInternships(preferences: RadarPreferences, fetcher: 
       method: "POST", cache: "no-store", signal: AbortSignal.timeout(25_000),
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query: radarQuery(preferences), search_depth: "basic", topic: "general",
-        start_date: new Date(Date.now() - radarDays(preferences) * 86400000).toISOString().slice(0, 10), include_published_date: true, max_results: 8, include_raw_content: "text", include_answer: false, auto_parameters: false,
-        exclude_domains: ["instagram.com", "facebook.com", "the-trackr.com"] })
+        // Search by relevance first. Provider page/index dates can predate the
+        // actual vacancy; enforce known job dates after extracting the source.
+        include_published_date: true, filter_by_published_date: false, max_results: 20, include_raw_content: "text", include_answer: false, auto_parameters: false,
+        ...radarSearchDomains(preferences.source),
+        exclude_domains: ["instagram.com", "facebook.com", "the-trackr.com", "ilikevents.com"] })
     });
   } catch { throw new Error("search_unavailable"); }
   if (!response.ok) throw new Error(response.status === 401 ? "search_key_invalid" : response.status === 429 || response.status === 432 ? "search_limit" : "search_unavailable");

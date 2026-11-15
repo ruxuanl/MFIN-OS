@@ -103,6 +103,15 @@ export class GoogleCalendarClient {
     );
   }
 
+  listEventsInRange(calendarId: string, timeMin: string, timeMax: string, pageToken?: string) {
+    const params = new URLSearchParams({
+      maxResults: "2500", singleEvents: "true", showDeleted: "false", orderBy: "startTime",
+      timeMin, timeMax, timeZone: "Asia/Hong_Kong"
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    return this.request<Page<GoogleEventResource>>(`calendars/${encodeURIComponent(calendarId)}/events?${params}`, "calendar.read");
+  }
+
   async createEvent(calendarId: string, event: GoogleEventResource) {
     try {
       return await this.request<GoogleEventResource>(`calendars/${encodeURIComponent(calendarId)}/events`, "calendar.write_confirmed_plan", {

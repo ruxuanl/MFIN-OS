@@ -7,20 +7,23 @@ describe("discovery filters and compact facts", () => {
   it("combines checked locations and sectors with OR and discards the old personal profile", () => {
     const p = parseRadarPreferences({ ...radarDefaults, direction: "二级买方,PEVC,投行", region: "北京,香港", publishedWithin: "1,3,7", profile: "old private profile" });
     expect(p.profile).not.toContain("private");
-    expect(radarQuery(p)).toContain('("Beijing" OR "Hong Kong")');
-    expect(radarQuery(p)).toContain('"private equity" OR "venture capital"');
-    expect(radarQuery(p)).toContain('("off-cycle" OR "summer")');
+    expect(radarQuery(p)).toContain('(北京 OR 香港)');
+    expect(radarQuery(p)).toContain('私募股权 创投');
+    expect(radarQuery(p)).not.toContain('"summer"');
+    expect(radarQuery(p)).not.toContain('"off-cycle"');
     expect(radarDays(p)).toBe(7);
     expect(() => parseRadarPreferences({ ...p, publishedWithin: "30" })).toThrow();
     expect(() => parseRadarPreferences({ ...p, direction: "" })).toThrow();
   });
-  it("requests a real date window without adding extra provider calls", async () => {
+  it("retrieves source dates without prefiltering by provider index dates or adding calls", async () => {
     vi.stubEnv("TAVILY_API_KEY", "synthetic");
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-14T12:00:00Z"));
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] })));
     await searchInternships({ ...radarDefaults, publishedWithin: "1,3" }, fetcher);
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ start_date: "2026-11-11", include_published_date: true, topic: "general" });
+    const body = JSON.parse(fetcher.mock.calls[0][1].body);
+    expect(body).toMatchObject({ include_published_date: true, filter_by_published_date: false, topic: "general" });
+    expect(body).not.toHaveProperty("start_date");
   });
   it("keeps unknown publication dates unknown and only extracts application emails from evidence", () => {
     const items = toRadarItems([

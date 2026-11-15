@@ -1,5 +1,9 @@
 # MFin OS workspace design
 
+## Internship discovery source information
+
+PC result cards lead with a concrete company and role, followed by sector, internship type and source. A shared tinted overview band separates source date, location and application method with subtle dividers; the date uses a cool neutral tint and actions use the existing green. Source publication and update dates retain their basis; relative dates show a bounded estimate. Undated sources live in a separate disclosure, outside the recent-date result count. The source selector uses native radio semantics for all-web, recruitment sites and public articles. Original evidence and editable confirmation fields remain in a disclosure; candidate addition is the primary footer action. Existing light/dark tokens and phone layouts remain authoritative.
+
 Scope: PC only, as directed by the user on 2026-11-15. All new design CSS is enclosed in `min-width: 681px`; phone-specific changes have been removed. The original phone homepage and header are retained. No further phone verification is part of this task.
 
 Mode: Operate. The user opens this workspace between classes, during application preparation and at night; a pale, low-glare daytime surface follows the system into a dark green nighttime surface.

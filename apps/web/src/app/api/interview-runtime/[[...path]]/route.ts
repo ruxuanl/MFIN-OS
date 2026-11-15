@@ -54,7 +54,14 @@ async function handle(request: Request, context: { params: Promise<{ path?: stri
       }
       if (!user.isMock && (path === "/api/upload" || command?.op === "import")) {
         const permission = await client.rpc("get_my_permission_decision", { capability_key: "files.upload" });
-        if (permission.error || !permission.data?.[0]?.allowed) return Response.json({ error: "请先在状态中心授权文件上传" }, { status: 403 });
+        if (permission.error) return Response.json({ error: "暂时无法核验上传权限，请稍后重试" }, { status: 503 });
+        const decision = permission.data?.[0];
+        if (!decision?.allowed) return Response.json({
+          error: decision?.reason === "grant_expired"
+            ? "文件上传的临时授权已到期，请到状态中心重新开启“文件上传”，再选择文件重试。"
+            : "文件上传尚未获准，请到状态中心检查“文件上传”及其依赖权限，再选择文件重试。",
+          code: "UPLOAD_PERMISSION_REQUIRED"
+        }, { status: 403 });
       }
     }
     if (path === "/bootstrap.js") return new Response(`window.INTERVIEW_BASE=${JSON.stringify(base)};`, { headers: { "Content-Type": "text/javascript", "Cache-Control": "no-store" } });

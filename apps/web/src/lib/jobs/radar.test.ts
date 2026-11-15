@@ -26,7 +26,7 @@ describe("manual internship radar", () => {
       {title:"Food Technical Internship",url:"https://example.com/jobs/123",content:"Food intern"},
       {title:"MBA Credit Research Internship",url:"https://example.com/jobs/124",content:"Credit research"}
     ]);
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(2);
     const sorted = visibleRadarItems(items);
     expect(sorted[0].title).toBe("MBA Credit Research Internship");
     expect(sorted[1].kind).toBe("unconfirmed");
@@ -40,10 +40,10 @@ describe("manual internship radar", () => {
       { title: "Investment Intern", url: "https://example.com/job/3", content: "Apply now" },
       { title: "Duplicate", url: "https://example.com/job/3?utm_campaign=x" }
     ]);
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(3);
     expect(items[0]).toMatchObject({ kind: "closed", company: "Synthetic Capital", location: "Hong Kong", deadline: "2020-01-01" });
-    expect(items[1].kind).toBe("unconfirmed"); expect(items[2].kind).toBe("closed");
-    expect(items[3]).toMatchObject({ kind: "job", evidenceKind: "snippet", deadline: null });
+    expect(items[1].kind).toBe("closed");
+    expect(items[2]).toMatchObject({ kind: "job", evidenceKind: "snippet", deadline: null });
   });
   it("calls the fixed provider once with bounded request, never retries", async () => {
     vi.stubEnv("TAVILY_API_KEY", "synthetic-key");
@@ -52,7 +52,7 @@ describe("manual internship radar", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     const [url, init] = fetcher.mock.calls[0];
     expect(url).toBe("https://api.tavily.com/search");
-    expect(JSON.parse(init.body)).toMatchObject({ max_results: 8, search_depth: "basic", auto_parameters: false });
+    expect(JSON.parse(init.body)).toMatchObject({ max_results: 20, search_depth: "basic", auto_parameters: false, include_domains_mode: "prefer" });
     expect(init.body).not.toContain(radarDefaults.profile);
     fetcher.mockResolvedValue(new Response("secret upstream body", { status: 401 }));
     await expect(searchInternships(radarDefaults, fetcher)).rejects.toThrow("search_key_invalid");

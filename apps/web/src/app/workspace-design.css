@@ -1,4 +1,22 @@
 /* PC-only redesign; mobile uses the existing globals.css implementation. */
+@media (min-width: 681px) {
+  .daily-discovery .workspace-section-heading p { display:block; max-width:80ch; color:var(--ink-soft); margin-top:8px; line-height:1.6; }
+  .daily-settings { padding:16px 0; border-block:1px solid var(--line); margin-block:12px 28px; }
+  .daily-settings summary { cursor:pointer; color:var(--green); font-weight:600; min-height:28px; }
+  .daily-settings form { max-width:72ch; padding-top:16px; }
+  .daily-settings input[type="checkbox"] { margin-right:8px; accent-color:var(--green); }
+  .daily-brief-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr); gap:32px; }
+  .daily-brief-grid > section { min-width:0; }
+  .daily-brief-grid h3 { font-size:21px; margin:0 0 16px; }
+  .daily-brief-grid h4 { font-size:17px; margin:0 0 10px; }
+  .daily-brief-grid p { line-height:1.65; margin:8px 0; overflow-wrap:anywhere; }
+  .daily-meta { color:var(--ink-soft); font-size:13px; }
+  .daily-recommendations,.daily-progress { list-style:none; padding:0; margin:20px 0; }
+  .daily-recommendations li,.daily-progress li { padding:20px 0; border-top:1px solid var(--line); }
+  .daily-recommendations strong { color:var(--green); }
+  .daily-progress li { padding:16px 0; }
+  .daily-brief-grid a { text-underline-offset:4px; }
+}
 .workspace-topbar, .desktop-workspace-design, .page-context-desktop { display: none; }
 .radar-filter-trigger, .radar-filter-options > p { display:none; }
 @media (min-width: 681px) {
@@ -182,4 +200,52 @@ button, input, select, textarea { accent-color: var(--green); }
 .radar-search-panel { overflow:visible; }
 @media (min-width:681px) and (max-width:1000px) { .radar-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
+}
+
+@media (min-width:681px) {
+  .radar-search-footer { flex-wrap:wrap; align-items:end; gap:16px; }
+  .radar-source-picker { padding:0; border:0; margin:0; min-width:0; }
+  .radar-source-picker legend { font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
+  .radar-source-picker > div { display:flex; gap:4px; padding:4px; background:var(--paper-muted); border-radius:9px; }
+  .radar-source-picker label { display:flex; align-items:center; gap:6px; min-height:40px; padding:8px 12px; border-radius:6px; color:var(--ink-soft); font-size:13px; cursor:pointer; }
+  .radar-source-picker label.is-selected { color:var(--green); background:var(--paper-elevated); font-weight:600; }
+  .radar-source-picker input { appearance:none; position:absolute; width:1px; height:1px; margin:0; opacity:0; }
+  .radar-source-picker label:has(input:focus-visible) { outline:2px solid var(--green); outline-offset:2px; }
+  .radar-keywords { flex:1 1 220px; }
+  .radar-search-footer > .primary-button { min-height:48px; padding-inline:24px; }
+  .radar-results { --radar-time-surface:color-mix(in srgb,var(--navy) 7%,var(--paper-elevated)); }
+  .radar-job { padding:24px; border-radius:14px; transition:border-color 160ms ease-out; }
+  .radar-job:hover { border-color:var(--line-strong); }
+  .radar-job-heading h3 { font-size:19px; line-height:1.6; max-width:65ch; font-weight:650; text-wrap:pretty; }
+  .radar-job-tags { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:12px; color:var(--ink-soft); }
+  .radar-job-tags > span { padding:4px 8px; background:var(--paper-muted); border-radius:5px; }
+  .radar-job-tags .radar-tag-sector { color:var(--green); background:var(--green-soft); }
+  .radar-job-tags a { display:inline-flex; gap:4px; align-items:center; margin-left:auto; color:var(--ink-soft); min-height:28px; text-decoration:none; }
+  .radar-job-tags a:hover { color:var(--green); text-decoration:underline; text-underline-offset:4px; }
+  .radar-job-facts { grid-template-columns:1.25fr 1fr 1fr; gap:0; background:var(--paper-muted); border-radius:9px; overflow:hidden; margin:20px 0; }
+  .radar-job-facts > div { padding:16px; min-width:0; }
+  .radar-job-facts > div + div { border-left:1px solid var(--line); }
+  .radar-job-facts .radar-fact-time { background:var(--radar-time-surface); }
+  .radar-job-facts dt { color:var(--ink-soft); font-size:12px; margin-bottom:8px; }
+  .radar-job-facts dd { font-size:15px; font-weight:600; line-height:1.55; font-variant-numeric:tabular-nums; }
+  .radar-job-facts small { display:block; color:var(--ink-soft); font-size:11px; line-height:1.6; margin-top:8px; }
+  .radar-fact-apply a { display:inline-flex; gap:6px; align-items:center; color:var(--green); text-underline-offset:4px; }
+  .radar-fact-apply small button { border:0; background:none; padding:0; font:inherit; color:var(--green); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+  .radar-job .radar-jd { font-size:14px; line-height:1.85; color:var(--ink); max-width:75ch; margin-bottom:20px; }
+  .radar-jd > span { display:block; margin:0 0 6px; font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .radar-job-form { align-items:center; gap:16px; padding-top:16px; }
+  .radar-job-form .radar-evidence { flex:1 1 300px; min-width:0; }
+  .radar-evidence summary { color:var(--ink-soft); min-height:40px; align-content:center; font-size:13px; }
+  .radar-job-form .radar-evidence[open] { flex-basis:100%; }
+  .radar-evidence[open] > p { font-size:13px; line-height:1.8; color:var(--ink-soft); }
+  .radar-job-form .button-row { gap:8px; margin-left:auto; }
+  .radar-job-form button { min-height:44px; font-size:13px; border-radius:8px; padding:10px 16px; }
+  .radar-job-form .primary-button { color:var(--paper-elevated); background:var(--green); border:1px solid var(--green); }
+  .radar-job-form .quiet-button { color:var(--ink-soft); background:transparent; border:1px solid transparent; }
+  .radar-job-form .quiet-button:hover { background:var(--paper-muted); color:var(--ink); }
+  .radar-undated { margin-top:28px; padding-top:20px; border-top:1px solid var(--line); }
+  .radar-undated > summary { font-size:16px; font-weight:600; min-height:44px; align-content:center; cursor:pointer; }
+  .radar-undated > summary span { margin-left:8px; color:var(--ink-soft); font-size:12px; font-weight:400; }
+  .radar-undated > p { color:var(--ink-soft); font-size:13px; line-height:1.75; margin:8px 0 20px; }
+  @media (prefers-reduced-motion:reduce) { .radar-job { transition:none; } }
 }

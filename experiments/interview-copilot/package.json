@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test test.mjs rag.test.mjs",
+    "test": "node --test test.mjs rag.test.mjs grounded.test.mjs",
     "setup:model": "node setup-model.mjs",
     "check": "node --check server.mjs && node --check app.js && node --check retrieval.mjs && node --check generation.mjs"
   },

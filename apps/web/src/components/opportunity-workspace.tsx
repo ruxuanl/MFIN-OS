@@ -5,6 +5,7 @@ import { createCandidate, saveWorkspaceView } from "@/app/(app)/workspace-action
 import { CandidatePool } from "@/components/candidate-pool";
 import { JdImporter } from "@/components/jd-importer";
 import { InternshipRadarSection } from "@/components/internship-radar-section";
+import { DailyDiscoverySection } from "@/components/daily-discovery-section";
 import { PageHeader } from "@/components/page-header";
 import { SubmitButton } from "@/components/operation-feedback";
 import { WorkspaceNotice } from "@/components/workspace-notice";
@@ -77,6 +78,7 @@ export async function OpportunityWorkspace({
 
 
       <WorkspaceTabs initialTab={first(search.tab) ?? (["query", "stage", "state", "sort", "page"].some((key) => first(search[key])) ? "tracked" : undefined)} tabs={[
+        ...(track === "internship" ? [{ id: "daily", label: "每日发现", content: <Suspense fallback={<p role="status">正在读取每日报告…</p>}><DailyDiscoverySection /></Suspense> }] : []),
         ...(track === "internship" ? [{ id: "discover", label: "发现实习", content: <Suspense fallback={<p role="status">正在加载实习雷达…</p>}><InternshipRadarSection /></Suspense> }] : []),
         { id: "tracked", label: `已追踪 · ${data.totalOpportunities}`, content: (<>      <section className="workspace-section">
         <div className="workspace-section-heading">

@@ -20,9 +20,10 @@ describe("radar keyed AI summaries", () => {
     expect(result.items[0].url).toBe(items[0].url);expect(result.items[0].evidence).toBe(items[0].evidence);
     expect(result.items[1]).toEqual(items[1]);
   });
-  it("keeps source-only and unconfirmed results available instead of silently dropping them", () => {
+  it("retains source evidence but hides explicitly rejected results", () => {
     expect(applyRadarAiOutput("invalid",items)).toEqual({items,enriched:0,invalid:3});
     const result=applyRadarAiOutput(JSON.stringify({job_0:{...summary,isRecruiting:false}}),items);
-    expect(visibleRadarItems(result.items)).toHaveLength(3);
+    expect(result.items).toHaveLength(3);
+    expect(visibleRadarItems(result.items)).toHaveLength(2);
   });
 });
