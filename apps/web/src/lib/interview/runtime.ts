@@ -1,11 +1,12 @@
 import "server-only";
+import { generateGroundedAnswer, type GroundedInput } from "./grounded-ai";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { request as httpRequest, type Server } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export type InterviewCatalog = { mode: string; jobs: unknown[]; resumes: unknown[] };
+export type InterviewCatalog = { mode: string; jobs: unknown[]; resumes: unknown[]; deletedResumeIds?: string[] };
 type LocalRuntime = { server: Server; port: number; catalog: InterviewCatalog };
 const state = globalThis as typeof globalThis & { interviewRuntimes?: Map<string, Promise<LocalRuntime>> };
 
@@ -27,10 +28,11 @@ async function runtimeFor(ownerId: string, catalog: InterviewCatalog) {
       await mkdir(data, { recursive: true });
       // The standalone module remains a local Node/Python engine, not a serverless dependency.
       const engineModule = await import(/* webpackIgnore: true */ pathToFileURL(resolve(root, "server.mjs")).href) as {
-        createApp: (dir: URL, options: { catalog: InterviewCatalog; modelCache: URL }) => Promise<Server>;
+        createApp: (dir: URL, options: { catalog: InterviewCatalog; modelCache: URL; generate: (input: GroundedInput) => Promise<unknown> }) => Promise<Server>;
       };
       const server = await engineModule.createApp(pathToFileURL(data + "/"), {
         catalog,
+        generate: input => generateGroundedAnswer(ownerId, input),
         modelCache: pathToFileURL(resolve(process.env.INTERVIEW_LOCAL_MODEL_ROOT || resolve(root, "runtime-data/models")) + "/")
       });
       await new Promise<void>((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });

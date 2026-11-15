@@ -20,6 +20,7 @@ export type CustomFieldValue = Tables["custom_field_values"]["Row"];
 export type OpportunityFilters = {
   query?: string;
   stage?: string;
+  substage?: string;
   state?: "active" | "archived";
   sort?: "updated" | "deadline" | "company";
   page?: number;
@@ -59,6 +60,8 @@ export async function getOpportunityWorkspace(
     .eq("track", track)
     .eq("record_state", filters.state ?? "active");
   if (filters.stage && stageValues.has(filters.stage)) opportunityQuery = opportunityQuery.eq("main_stage", filters.stage);
+  if (filters.substage === "Read Confirmed") opportunityQuery = opportunityQuery.or("substage.ilike.%Read_Confirmed%,substage.ilike.%已读确认%,substage.ilike.%HR_已读%,substage.ilike.%HR已读%");
+  else if (filters.substage && filters.substage.length <= 120) opportunityQuery = opportunityQuery.eq("substage", filters.substage);
   const pattern = toIlikePattern(filters.query);
   if (pattern) {
     opportunityQuery = opportunityQuery.or(

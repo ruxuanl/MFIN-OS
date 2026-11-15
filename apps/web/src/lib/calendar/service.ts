@@ -37,6 +37,7 @@ import {
   type GoogleOAuthConfig
 } from "./oauth";
 import { calendarFailureCode } from "./errors";
+import type { CalendarDisplayEvent } from "./view-model";
 
 type Tables = Database["public"]["Tables"];
 type CalendarSource = Tables["calendar_sources"]["Row"];
@@ -719,7 +720,7 @@ async function syncWithClient(
     .from("calendar_sync_operations")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .in("status", ["pending", "processing"]);
+    .in("status", ["pending", "processing", "failed"]);
   if (pendingError) throw pendingError;
   result.pendingOperations = pendingOperations ?? 0;
   const { error: completionError } = await service.from("external_connections").update({
@@ -751,6 +752,40 @@ async function recordCalendarFailure(userId: string, failure: unknown, initializ
     ...(initialization ? { last_success_at: null } : {})
   }).eq("user_id", userId).eq("provider", "calendar");
   if (error) console.error("[calendar-sync]", "calendar_failure_record_failed");
+}
+
+// A view refresh reads Google only; it never drains the write queue or creates calendars.
+export async function readCalendarView(userId: string, oauth: GoogleOAuthConfig, timeMin: string, timeMax: string): Promise<CalendarDisplayEvent[]> {
+  await assertCalendarMayAccessExternal(userId);
+  await assertCalendarCapability(userId, "calendar.read");
+  const credentials = await getFreshCredentials(userId, oauth);
+  const client = calendarClient(userId, credentials.accessToken);
+  const calendars = await listAllCalendars(client);
+  const service = createServiceClient();
+  const { data: product, error } = await service.from("calendar_sources").select("provider_calendar_id")
+    .eq("user_id", userId).eq("is_product_calendar", true).maybeSingle();
+  if (error) throw error;
+  const batches = await Promise.all(calendars.filter(calendar => !calendar.deleted && calendar.accessRole !== "freeBusyReader").map(async (calendar) => {
+    const events: CalendarDisplayEvent[] = [];
+    let pageToken: string | undefined;
+    do {
+      const page = await client.listEventsInRange(calendar.id, timeMin, timeMax, pageToken);
+      for (const event of page.items ?? []) {
+        const start = event.start?.date ?? event.start?.dateTime;
+        if (!start || event.status === "cancelled") continue;
+        events.push({
+          id: `${calendar.id}:${event.id}`, title: event.summary ?? "无标题日程", source: calendar.summary,
+          productOwned: calendar.id === product?.provider_calendar_id, allDay: Boolean(event.start?.date),
+          actionId: calendar.id === product?.provider_calendar_id ? getProductActionMarkerId(event) : null,
+          start, end: event.end?.date ?? event.end?.dateTime ?? null,
+          url: event.htmlLink ?? null, location: event.location ?? null
+        });
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken);
+    return events;
+  }));
+  return batches.flat();
 }
 
 export async function runCalendarSync(

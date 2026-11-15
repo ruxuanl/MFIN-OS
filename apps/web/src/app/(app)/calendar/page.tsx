@@ -1,28 +1,23 @@
 import Link from "next/link";
-
 import { PageHeader } from "@/components/page-header";
 import { OperationLink, SubmitButton } from "@/components/operation-feedback";
 import { ReauthenticateControl } from "@/components/reauthenticate-control";
-import { createAction } from "@/app/(app)/workspace-actions";
+import { CalendarMonth } from "@/components/calendar-month";
 import { requireUser } from "@/lib/auth/session";
-import { calendarLabels, PRODUCT_CALENDAR_NAME, PRODUCT_CALENDAR_TIME_ZONE } from "@/lib/calendar/constants";
-import { getCalendarCenterData } from "@/lib/calendar/data";
+import { PRODUCT_CALENDAR_TIME_ZONE } from "@/lib/calendar/constants";
+import { getCalendarCenterData, type CalendarAction } from "@/lib/calendar/data";
 import { formatCalendarDateTimeLocal } from "@/lib/calendar/model";
-import { isCalendarServerConfigured } from "@/lib/config";
-
-import {
-  disconnectCalendarAction,
-  queueCalendarAction,
-  resolveCalendarConflictAction,
-  setCalendarConnectionState,
-  triggerCalendarSync,
-  updatePersonalCalendarAction
-} from "./actions";
+import { calendarDay, calendarMonth, monthDays, type CalendarDisplayEvent } from "@/lib/calendar/view-model";
+import { readCalendarView } from "@/lib/calendar/service";
+import { calendarFailureNotice } from "@/lib/calendar/errors";
+import { getCalendarOAuthConfig, isCalendarServerConfigured } from "@/lib/config";
+import { createScheduledAction, disconnectCalendarAction, queueCalendarAction, resolveCalendarConflictAction, setCalendarConnectionState, triggerCalendarSync, updatePersonalCalendarAction } from "./actions";
 import { CalendarSyncSubmitButton } from "./sync-submit-button";
+import "./calendar-view.css";
 
 export const metadata = { title: "日历同步" };
-
 const notices: Record<string, string> = {
+  queued_not_configured: "行动已加入待同步队列，请先连接 Google Calendar。",
   not_configured: "M4 服务端密钥尚未配置；当前不会启动外部授权。",
   connection_permission_required: "请先在状态中心开启 Calendar 连接和日历读取权限。",
   reauth_required: "连接或断开 Calendar 前需要新的 Passkey / Face ID 或重新登录证明。",
@@ -42,7 +37,7 @@ const notices: Record<string, string> = {
   queued: "事项已进入持久化同步队列；权限关闭时会保持待同步。",
   sync_failed: "同步失败，错误状态已保留，可在修复连接后重试。",
   synced: "Calendar 增量同步与待处理写入已完成。",
-  sync_pending: "Calendar 读取同步已完成；仍有写入任务因权限、连接或重试条件未满足而保留待同步。",
+  sync_pending: "日程读取已完成；仍有事项待同步或同步失败，请检查候选池状态、连接与写入权限后重试。",
   sync_conflicts: "Calendar 同步已完成，但存在需要你选择处理方式的冲突。",
   paused: "Calendar 已暂停；令牌保留，但不会读取或写入。",
   resumed: "Calendar 已恢复；历史不会自动补跑，请主动同步。",
@@ -52,7 +47,7 @@ const notices: Record<string, string> = {
   disconnect_failed: "断开失败；连接状态保持可见，请重新验证后重试。",
   conflict_failed: "冲突未解决；远端和产品状态均未被静默覆盖。",
   conflict_resolved: "冲突已按你的选择处理，并追加时间线与审计。",
-  action_created: "个人行动已创建；它尚未写入 Calendar，请选择时间事件或全天事件。",
+  action_created: "行动已保存到候选池，确认同步后会出现在 Google Calendar。",
   action_failed: "个人行动创建失败，请检查标题和时间。",
   action_updated: "个人行动已更新；Google Calendar 尚未改动，请点击“立即同步”完成外部更新。",
   action_unchanged: "没有检测到字段变化；Google Calendar 未执行更新。",
@@ -60,153 +55,56 @@ const notices: Record<string, string> = {
   action_update_conflict: "个人行动的并发修改已进入冲突队列；没有静默覆盖另一端的新值。"
 };
 
-const statusLabels: Record<string, string> = {
-  connected: "已连接",
-  paused: "已暂停",
-  disconnected: "已断开",
-  connecting: "连接中",
-  error: "异常"
-};
 
+const statusLabels: Record<string, string> = { connected: "已连接", paused: "已暂停", disconnected: "未连接", connecting: "连接中", error: "连接异常" };
 const resolutionOptions: Record<string, Array<{ value: string; label: string }>> = {
-  remote_deleted: [
-    { value: "cancel_schedule", label: "取消排期" },
-    { value: "resync", label: "重新同步" }
-  ],
-  concurrent_change: [
-    { value: "accept_calendar", label: "采用 Calendar 时间" },
-    { value: "use_product", label: "采用产品排期" }
-  ],
+  remote_deleted: [{ value: "cancel_schedule", label: "取消排期" }, { value: "resync", label: "重新同步" }],
+  concurrent_change: [{ value: "accept_calendar", label: "采用 Calendar 时间" }, { value: "use_product", label: "采用产品排期" }],
   write_protected: [{ value: "keep_read_only", label: "保持只读" }]
 };
+const dateTime = new Intl.DateTimeFormat("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: PRODUCT_CALENDAR_TIME_ZONE });
 
-const dateTime = new Intl.DateTimeFormat("zh-CN", {
-  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: PRODUCT_CALENDAR_TIME_ZONE
-});
-
-export default async function CalendarPage({
-  searchParams
-}: {
-  searchParams: Promise<{ notice?: string }>;
-}) {
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ notice?: string; month?: string }> }) {
   const user = await requireUser();
   const data = await getCalendarCenterData(user);
-  const { notice } = await searchParams;
+  const { notice, month: requestedMonth } = await searchParams;
+  const today = calendarDay(new Date());
+  const month = calendarMonth(requestedMonth, today);
+  const days = monthDays(month);
   const configured = isCalendarServerConfigured();
   const connectionStatus = data.connection?.status ?? "disconnected";
-  const linkByAction = new Map(data.links.map((link) => [link.action_id, link]));
-  const sourceById = new Map(data.sources.map((source) => [source.id, source]));
+  const linkByAction = new Map(data.links.map(link => [link.action_id, link]));
+  const sourceById = new Map(data.sources.map(source => [source.id, source]));
+  const actionById = new Map(data.actions.map(action => [action.id, action]));
+  let events: CalendarDisplayEvent[] = data.events.filter(event => event.status !== "cancelled").flatMap(event => {
+    const start = event.starts_on ?? event.starts_at;
+    return start ? [{ id: event.id, title: event.summary ?? "无标题日程", source: sourceById.get(event.calendar_source_id)?.summary ?? "Google Calendar", productOwned: event.product_owned, actionId: event.product_action_id, allDay: event.all_day, start, end: event.ends_on ?? event.ends_at, url: event.html_link, location: event.location }] : [];
+  });
+  let viewError: string | null = null;
+  let live = false;
+  if (configured && !data.isMock && connectionStatus === "connected") {
+    try {
+      const end = new Date(days[41] + "T00:00:00+08:00");
+      end.setUTCDate(end.getUTCDate() + 1);
+      events = await readCalendarView(user.id, getCalendarOAuthConfig(), days[0] + "T00:00:00+08:00", end.toISOString());
+      live = true;
+    } catch (error) { viewError = calendarFailureNotice(error); }
+  }
+  const candidates = data.actions.filter(action => action.status !== "completed" && action.status !== "cancelled" && linkByAction.get(action.id)?.sync_status !== "synced");
+  const synced = data.actions.filter(action => linkByAction.get(action.id)?.sync_status === "synced");
+  events = events.map(event => ({ ...event, priority: event.actionId ? actionById.get(event.actionId)?.priority ?? null : null }));
 
-  return (
-    <div className="page-shell calendar-page">
-      <PageHeader
-        eyebrow="M4 · Calendar loop"
-        title="日历同步"
-        description="Google Calendar 负责每日时间与提醒；Action 和三张长期表仍以产品数据库为真相源。外部既有事件只读。"
-        action={<span className={`status-pill${connectionStatus === "connected" && !data.connection?.lastErrorCode ? " is-ready" : ""}`}>{data.connection?.lastErrorCode ? "同步异常" : statusLabels[connectionStatus] ?? connectionStatus}</span>}
-      />
-
-      {notice && notices[notice] ? <p className="status-notice" role="status">{notices[notice]}</p> : null}
-      {data.connection?.lastErrorCode ? (
-        <p className="status-notice" role="status">
-          {notices[data.connection.lastErrorCode.replace(/^calendar_/, "")] ?? "上次日历同步未完成，请重试同步或重新连接 Google Calendar。"}
-        </p>
-      ) : null}
-
-      <section className="calendar-connection-card">
-        <div>
-          <p className="page-eyebrow">Independent OAuth</p>
-          <h2>{PRODUCT_CALENDAR_NAME}</h2>
-          <p>时区 {PRODUCT_CALENDAR_TIME_ZONE}。读取已授权账号的日历用于冲突判断，只写本产品创建的独立日历。</p>
-          <div className="calendar-labels">
-            {Object.entries(calendarLabels).map(([key, label]) => (
-              <span key={key} style={{ "--label-color": label.backgroundColor } as React.CSSProperties}>{label.name}</span>
-            ))}
-          </div>
-        </div>
-        <div className="calendar-connection-actions">
-          {connectionStatus === "connected" ? (
-            <>
-              <form action={triggerCalendarSync} className="calendar-sync-form">
-                <CalendarSyncSubmitButton />
-              </form>
-              <form action={setCalendarConnectionState}><SubmitButton className="quiet-button" name="status" value="paused" pendingLabel="正在暂停…">暂停连接</SubmitButton></form>
-              <ReauthenticateControl returnTo="/calendar" />
-              {data.connection?.lastErrorCode ? <OperationLink className="quiet-button" href="/api/calendar/oauth/start" pendingLabel="正在连接…">重新连接 Google Calendar</OperationLink> : null}
-              <form action={disconnectCalendarAction}><SubmitButton className="danger-button" pendingLabel="正在断开…">断开并撤销</SubmitButton></form>
-            </>
-          ) : connectionStatus === "paused" ? (
-            <form action={setCalendarConnectionState}><SubmitButton className="primary-button" name="status" value="connected" pendingLabel="正在恢复…">恢复连接</SubmitButton></form>
-          ) : (
-            <>
-              <ReauthenticateControl returnTo="/calendar" />
-              <OperationLink className={`primary-button${!configured || data.isMock ? " is-disabled" : ""}`} disabled={!configured || data.isMock} href="/api/calendar/oauth/start" pendingLabel="正在连接…">连接 Google Calendar</OperationLink>
-              <Link className="quiet-link" href="/status">检查 Calendar 连接权限 →</Link>
-            </>
-          )}
-        </div>
-      </section>
-
-      <div className="calendar-metrics">
-        <article><span>日历来源</span><strong>{data.sources.length}</strong><small>全部只读，产品日历除外</small></article>
-        <article><span>事件镜像</span><strong>{data.events.length}</strong><small>当前页面最多显示 50 条</small></article>
-        <article><span>待同步</span><strong>{data.operations.filter((item) => item.status === "pending").length}</strong><small>关闭权限时保留，不外写</small></article>
-        <article><span>冲突</span><strong>{data.conflicts.length}</strong><small>必须由你显式处理</small></article>
+  function renderAction(action: CalendarAction, confirmed = false) {
+    const link = linkByAction.get(action.id);
+    return <article key={action.id}>
+      <div><strong>{action.title}</strong><p>{action.suggested_start_at ? "开始 " + dateTime.format(new Date(action.suggested_start_at)) : action.due_at ? "截止 " + dateTime.format(new Date(action.due_at)) : "尚未设置日期 · 请先编辑排期"}</p></div>
+      <span className={"status-pill" + (confirmed ? " is-ready" : "")}>{confirmed ? "已同步" : link?.sync_status === "conflict" ? "冲突待处理" : link?.sync_status === "failed" ? "同步失败" : link ? "待同步" : "待确认"}</span>
+      <div className="calendar-action-buttons">
+        {!confirmed ? <>
+          <form action={queueCalendarAction}><input type="hidden" name="actionId" value={action.id} /><input type="hidden" name="allDay" value="false" /><SubmitButton className="quiet-button" disabled={link?.sync_status === "conflict" || (!action.suggested_start_at && !action.due_at)} pendingLabel="正在同步…">确认同步时间事件</SubmitButton></form>
+          <form action={queueCalendarAction}><input type="hidden" name="actionId" value={action.id} /><input type="hidden" name="allDay" value="true" /><SubmitButton className="quiet-button" disabled={link?.sync_status === "conflict" || !action.due_at} pendingLabel="正在同步…">确认同步全天事件</SubmitButton></form>
+        </> : null}
       </div>
-
-      {data.conflicts.length ? (
-        <section className="calendar-section calendar-conflicts">
-          <div className="section-heading"><p>Conflict queue</p><h2>需要你决定</h2></div>
-          <div className="calendar-conflict-list">
-            {data.conflicts.map((conflict) => (
-              <article key={conflict.id}>
-                <div><strong>{conflict.conflict_type === "remote_deleted" ? "Calendar 事件已被删除" : conflict.conflict_type === "concurrent_change" ? "产品与 Calendar 同时修改" : "外部事件受只读保护"}</strong><p>系统没有自动重建、覆盖或删除 Action 历史。</p></div>
-                <div className="calendar-conflict-actions">
-                  {(resolutionOptions[conflict.conflict_type] ?? []).map((option, index) => (
-                    <form action={resolveCalendarConflictAction} key={option.value}>
-                      <input type="hidden" name="conflictId" value={conflict.id} />
-                      <SubmitButton className={index === 0 ? "primary-button" : "quiet-button"} name="resolution" value={option.value}>{option.label}</SubmitButton>
-                    </form>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="calendar-section">
-        <div className="section-heading"><p>Action scheduling</p><h2>行动与排期</h2></div>
-        <p className="section-note">有时间的事项写为时间事件；选择全天时使用截止日期。完成或取消后事件保留，只改变标题。</p>
-        <details className="create-drawer">
-          <summary>＋ 新建个人行动</summary>
-          <form action={createAction} className="workspace-form compact-form">
-            <input type="hidden" name="returnTo" value="/calendar" />
-            <input type="hidden" name="contextType" value="personal" />
-            <input type="hidden" name="track" value="personal" />
-            <div className="field-grid">
-              <label className="field-wide"><span>可执行描述 *</span><input name="title" required maxLength={300} /></label>
-              <label><span>截止时间</span><input name="dueAt" type="datetime-local" /></label>
-              <label><span>建议开始</span><input name="suggestedStartAt" type="datetime-local" /></label>
-              <label><span>预计分钟</span><input name="estimatedMinutes" type="number" min={1} max={10080} /></label>
-              <label><span>优先级</span><select name="priority" defaultValue="normal"><option value="low">低</option><option value="normal">普通</option><option value="high">高</option><option value="critical">关键</option></select></label>
-              <label className="field-wide"><span>完成标准</span><textarea name="completionCriteria" rows={2} maxLength={1000} /></label>
-            </div>
-            <SubmitButton className="primary-button" pendingLabel="正在创建…">创建个人行动</SubmitButton>
-          </form>
-        </details>
-        {data.actions.length === 0 ? <p className="workspace-empty small-empty">尚无可排期 Action。</p> : (
-          <div className="calendar-action-list">
-            {data.actions.map((action) => {
-              const link = linkByAction.get(action.id);
-              return (
-                <article key={action.id}>
-                  <div><strong>{action.title}</strong><p>{action.suggested_start_at ? `开始 ${dateTime.format(new Date(action.suggested_start_at))}` : action.due_at ? `截止 ${dateTime.format(new Date(action.due_at))}` : "尚未设置日期"}</p></div>
-                  <span className={`status-pill${link?.sync_status === "synced" ? " is-ready" : ""}`}>{link?.sync_status === "synced" ? "已同步" : link?.sync_status === "conflict" ? "冲突" : link ? "待同步" : "未关联"}</span>
-                  <div className="calendar-action-buttons">
-                    <form action={queueCalendarAction}><input type="hidden" name="actionId" value={action.id} /><input type="hidden" name="allDay" value="false" /><SubmitButton className="quiet-button" disabled={!action.suggested_start_at && !action.due_at} pendingLabel="正在加入…">时间事件</SubmitButton></form>
-                    <form action={queueCalendarAction}><input type="hidden" name="actionId" value={action.id} /><input type="hidden" name="allDay" value="true" /><SubmitButton className="quiet-button" disabled={!action.due_at} pendingLabel="正在加入…">全天事件</SubmitButton></form>
-                  </div>
                   {action.context_type === "personal" ? (
                     <details className="calendar-edit-drawer">
                       <summary>编辑个人行动</summary>
@@ -224,31 +122,64 @@ export default async function CalendarPage({
                       </form>
                     </details>
                   ) : null}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
 
-      <div className="calendar-two-column">
-        <section className="calendar-section">
-          <div className="section-heading"><p>Sources</p><h2>日历来源</h2></div>
-          <div className="calendar-source-list">
-            {data.sources.map((source) => <div key={source.id}><span className={source.is_product_calendar ? "source-dot is-product" : "source-dot"} /><div><strong>{source.summary}</strong><small>{source.access_role} · {source.sync_state}</small></div></div>)}
-            {data.sources.length === 0 ? <p>连接后显示已授权账号中的可读日历。</p> : null}
-          </div>
-        </section>
-        <section className="calendar-section">
-          <div className="section-heading"><p>Recent events</p><h2>事件镜像</h2></div>
-          <div className="calendar-event-list">
-            {data.events.slice(0, 12).map((event) => <div key={event.id}><span>{event.all_day ? event.starts_on : event.starts_at ? dateTime.format(new Date(event.starts_at)) : "—"}</span><div><strong>{event.summary ?? "无标题事件"}</strong><small>{sourceById.get(event.calendar_source_id)?.summary ?? "Calendar"}</small></div></div>)}
-            {data.events.length === 0 ? <p>尚无已同步事件。</p> : null}
-          </div>
-        </section>
+    </article>;
+  }
+
+  return <div className="page-shell calendar-page">
+    <PageHeader eyebrow="" title="日历同步" description="查看未来日程，确认行动排期后同步到 Google Calendar。" />
+    {notice && notices[notice] ? <p className="status-notice" role="status">{notices[notice]}</p> : null}
+    <section className="calendar-section calendar-overview" aria-labelledby="calendar-heading">
+      <div className="calendar-section-header">
+        <div><h2 id="calendar-heading">Calendar</h2><p className="calendar-muted">Google Calendar · 香港时间{live ? " · 已读取最新日程" : data.connection?.lastSuccessAt ? " · 上次同步 " + dateTime.format(new Date(data.connection.lastSuccessAt)) : " · 等待连接"}</p></div>
+        <div className="calendar-toolbar-actions">
+          <span className={"status-pill" + (live ? " is-ready" : "")}>{viewError ? "读取异常" : statusLabels[connectionStatus] ?? connectionStatus}</span>
+          {connectionStatus === "connected" ? <form action={triggerCalendarSync}><CalendarSyncSubmitButton /></form> : connectionStatus !== "paused" ? <OperationLink className="primary-button" disabled={!configured || data.isMock} href="/api/calendar/oauth/start">连接 Google Calendar</OperationLink> : null}
+          <details className="calendar-settings">
+            <summary className="quiet-button">连接设置</summary>
+            <div className="calendar-settings-panel">
+              <strong>Google Calendar · {statusLabels[connectionStatus] ?? connectionStatus}</strong>
+              <p className="calendar-muted">读取已有日程；确认的行动写入 MFIN OS 专用日历。原有日程保持只读。</p>
+              <div className="calendar-connection-actions">
+                {connectionStatus === "connected" ? <form action={setCalendarConnectionState}><SubmitButton className="quiet-button" name="status" value="paused">暂停连接</SubmitButton></form> : connectionStatus === "paused" ? <form action={setCalendarConnectionState}><SubmitButton className="primary-button" name="status" value="connected">恢复连接</SubmitButton></form> : null}
+                <ReauthenticateControl returnTo="/calendar" />
+                {connectionStatus !== "paused" ? <OperationLink className="quiet-button" disabled={!configured || data.isMock} href="/api/calendar/oauth/start">{connectionStatus === "connected" ? "重新连接 Google Calendar" : "连接 Google Calendar"}</OperationLink> : null}
+                <Link className="quiet-link" href="/status">管理日历权限</Link>
+                {connectionStatus === "connected" || connectionStatus === "paused" ? <form action={disconnectCalendarAction}><SubmitButton className="danger-button" pendingLabel="正在断开…">断开并撤销</SubmitButton></form> : null}
+              </div>
+            </div>
+          </details>
+        </div>
       </div>
-
-      <p className="forbidden-note">只读保护：产品没有修改或删除用户原有 Calendar 事件的入口；写入仅限带稳定产品标记的独立日历事件。</p>
-    </div>
-  );
+      {viewError ? <p className="status-notice" role="status">{notices[viewError] ?? "无法读取最新日程，请重试或在连接设置中重新授权。"} 当前仅显示已保存的日程，可能缺少重复日程或最新变更。</p> : null}
+      {connectionStatus === "paused" ? <p className="status-notice">连接已暂停，当前显示已保存的日程。可在连接设置中恢复。</p> : null}
+      <CalendarMonth key={month} month={month} today={today} events={events} connected={connectionStatus === "connected"} />
+    </section>
+    <section className="calendar-section calendar-scheduling" aria-labelledby="scheduling-heading">
+      <div className="calendar-section-header"><div><h2 id="scheduling-heading">行动排期同步</h2><p className="calendar-muted">候选行动确认后，直接写入上方日历，并同步到你的 Google Calendar。</p></div><a className="quiet-button" href="#new-calendar-action">新建行动与排期</a></div>
+      {data.conflicts.length ? <div className="calendar-conflicts"><h3>同步冲突 · 需要你决定</h3><div className="calendar-conflict-list">{data.conflicts.map(conflict => <article key={conflict.id}>
+        <strong>{conflict.conflict_type === "remote_deleted" ? "Google Calendar 中的日程已删除" : conflict.conflict_type === "concurrent_change" ? "两端的排期同时变更" : "原有日程受只读保护"}</strong>
+        <div className="calendar-conflict-actions">{(resolutionOptions[conflict.conflict_type] ?? []).map(option => <form key={option.value} action={resolveCalendarConflictAction}><input type="hidden" name="conflictId" value={conflict.id} /><SubmitButton className="quiet-button" name="resolution" value={option.value}>{option.label}</SubmitButton></form>)}</div>
+      </article>)}</div></div> : null}
+      <h3>行动与排期候选池 <span className="calendar-muted">{candidates.length}</span></h3>
+      {candidates.length ? <div className="calendar-action-list">{candidates.map(action => renderAction(action))}</div> : <p className="calendar-day-empty">暂无待确认行动。你可以在下方新建行动与排期。</p>}
+      {synced.length ? <details className="calendar-synced-actions"><summary>已同步的行动 · {synced.length}</summary><div className="calendar-action-list">{synced.map(action => renderAction(action, true))}</div></details> : null}
+      <div id="new-calendar-action" className="calendar-create-action">
+        <h3>新建行动与排期</h3>
+        <form action={createScheduledAction} className="workspace-form compact-form">
+          <div className="field-grid">
+            <label className="field-wide"><span>行动名称 *</span><input name="title" required maxLength={300} /></label>
+            <label><span>建议开始时间</span><input name="suggestedStartAt" type="datetime-local" /></label>
+            <label><span>截止时间 / 全天日期</span><input name="dueAt" type="datetime-local" /></label>
+            <label><span>预计分钟</span><input name="estimatedMinutes" type="number" min={1} max={10080} /></label>
+            <label><span>日程类型</span><select name="allDay" defaultValue="false"><option value="false">时间事件</option><option value="true">全天事件</option></select></label>
+            <label><span>优先级</span><select name="priority" defaultValue="normal"><option value="low">低</option><option value="normal">普通</option><option value="high">高</option><option value="critical">关键</option></select></label>
+            <label className="field-wide"><span>完成标准</span><textarea name="completionCriteria" rows={2} maxLength={1000} /></label>
+          </div>
+          <p className="calendar-muted">香港时间（UTC+8）。时间事件使用建议开始时间；全天事件使用截止日期。仅保存的行动不会写入 Google Calendar。</p>
+          <div className="calendar-create-buttons"><SubmitButton className="primary-button" name="intent" value="sync" pendingLabel="正在创建并同步…">创建并确认同步</SubmitButton><SubmitButton className="quiet-button" name="intent" value="draft" pendingLabel="正在保存…">仅保存到候选池</SubmitButton></div>
+        </form>
+      </div>
+    </section>
+  </div>;
 }

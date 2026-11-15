@@ -6,11 +6,17 @@ import { isOpenAiConfigured } from "@/lib/config";
 import { explainRadarItems, getRadarAiConfig } from "@/lib/jobs/radar-ai";
 import { parseRadarPreferences, reuseRadarEvidence, type RadarSnapshot } from "@/lib/jobs/radar-model";
 import { searchInternships } from "@/lib/jobs/tavily";
+import { matchesRadarPreferences, filteredRadarItems, selectRadarEvidence } from "@/lib/jobs/radar-results";
+import { radarSourceTime } from "@/lib/jobs/radar-source-time";
+import { requireRadarSourceAccess } from "@/lib/jobs/radar-access";
+import { searchLeadershipLocal, leadershipItem, leadershipLock, leadershipDecisions, saveLeadershipDecision } from "@/lib/jobs/leadership-local";
+import { enrichRadarPageTimes } from "@/lib/jobs/radar-page-time";
+import { radarJobLocation } from "@/lib/jobs/radar-location";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Json } from "@/lib/supabase/database.types";
 
-export type RadarActionState = { message: string; ok: boolean };
+export type RadarActionState = { message: string; ok: boolean; decision?:"added"|"ignored"; localItems?: RadarSnapshot["items"]; localStats?: RadarSnapshot["localStats"] };
 function safeError(error: unknown) {
   const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
   const labels: Record<string, string> = {
@@ -34,17 +40,24 @@ export async function discoverInternships(_previous: RadarActionState, form: For
   let aiWarning = "";
   try {
     const preferences = parseRadarPreferences({ ...Object.fromEntries(form.entries()), ...Object.fromEntries(["direction", "region", "internshipType", "publishedWithin"].map(key => [key, form.getAll(key).join(",")])) });
+    if(preferences.source==="local"){
+      await requireRadarSourceAccess(user.id);
+      const local=await searchLeadershipLocal(user.id,preferences);
+      return {ok:local.available,message:local.available?`已检索 ${local.files} 份本地汇总表，找到 ${local.items.length} 个符合条件的岗位；按文件标题日期筛选，未调用联网搜索或AI。`:local.message??"本地LEADERSHIP渠道尚未配置。",localItems:local.items,localStats:{files:local.files,records:local.records,available:local.available,message:local.message}};
+    }
 
     if (!process.env.TAVILY_API_KEY) throw new Error("search_not_configured");
     const start = await supabase.rpc("manual_radar", { target_action: "start", payload: preferences });
     if (start.error || typeof start.data !== "string") throw start.error ?? new Error("start_failed");
     runId = start.data;
-    items = await searchInternships(preferences);
+    items = selectRadarEvidence((await searchInternships(preferences)).filter(item => !radarJobLocation(item)||matchesRadarPreferences(item, preferences)));
     const check = await supabase.rpc("manual_radar", { target_action: "check", payload: { runId } });
     if (check.error) throw check.error;
     const original = await supabase.rpc("manual_radar", { target_action: "read" });
     if (original.error) throw original.error;
     items = reuseRadarEvidence(items, (original.data as unknown as RadarSnapshot)?.items ?? []);
+    items = await enrichRadarPageTimes(items);
+    items = selectRadarEvidence(items.filter(item => matchesRadarPreferences(item, preferences)));
     if (items.length && isOpenAiConfigured()) {
       try {
         const config = getRadarAiConfig();
@@ -67,7 +80,9 @@ export async function discoverInternships(_previous: RadarActionState, form: For
     if (snapshot?.runs?.find(x => x.id === runId)?.status !== "completed") throw new Error("radar_permission_denied");
     revalidatePath("/internships/discover");
     revalidatePath("/internships");
-    return { ok: true, message: items.length ? `本轮取得 ${items.length} 条真实检索结果，尚未加入候选。${aiWarning}` : "本轮没有找到结果，请调整岗位条件。" };
+    const displayItems = filteredRadarItems(items, preferences);
+    const datedCount = displayItems.filter(item => radarSourceTime(item)).length;
+    return { ok: true, message: displayItems.length ? `本轮整理 ${displayItems.length} 个具体岗位：${datedCount} 条有来源日期，${displayItems.length - datedCount} 条未取得来源日期而隐藏，尚未加入候选。${aiWarning}` : `本轮暂无符合筛选且信息足够的具体实习岗位，请调整条件后重试。${aiWarning}` };
   } catch (error) {
     if (runId) await createServiceClient().rpc("finish_manual_radar", { target_run_id: runId, target_items: items as unknown as Json, target_error: "search_or_save_failed", target_ai: aiUsage });
     revalidatePath("/internships/discover");
@@ -80,9 +95,27 @@ export async function decideDiscovery(_previous: RadarActionState, form: FormDat
   if (user.isMock) return { ok: false, message: "预览模式不能写入。" };
   const action = form.get("decision");
   if (action !== "add" && action !== "ignore") return { ok: false, message: "无效操作。" };
+  const localId=String(form.get("id")??"");
+  if(localId.startsWith("leadership:")){
+    try{return await leadershipLock(user.id,async()=>{
+      const client=await requireRadarSourceAccess(user.id);
+      const item=await leadershipItem(user.id,localId);
+      if(action==="ignore"){await saveLeadershipDecision(user.id,localId,"ignored");revalidatePath("/internships");return {ok:true,decision:"ignored" as const,message:"已忽略这条本地来源。"};}
+      if((await leadershipDecisions(user.id))[localId]==="added")return {ok:true,decision:"added" as const,message:"该岗位已加入候选。"};
+      const company=String(form.get("company")??item.company).trim(),title=String(form.get("title")??item.title).trim();
+      if(!company||!title||company.length>240||title.length>240)throw new Error("invalid_conditions");
+      const marker=`[LEADERSHIP:${item.localSource.key}]`;
+      const prior=await client.from("opportunity_candidates").select("id").eq("user_id",user.id).eq("track","internship").like("source_summary",marker+"%").limit(1);
+      if(prior.error)throw prior.error;
+      let exists=Boolean(prior.data?.length);
+      if(!exists&&item.localSource.publicUrl&&/\/(?:jobs?|positions?|vacanc(?:y|ies)|view|requisition)\/[^/?]+|[?&](?:jobid|job_id|gh_jid)=/i.test(item.localSource.publicUrl)){const byUrl=await client.from("opportunity_candidates").select("id").eq("user_id",user.id).eq("track","internship").eq("source_url",item.localSource.publicUrl).limit(1);if(byUrl.error)throw byUrl.error;exists=Boolean(byUrl.data?.length);}
+      if(!exists){const saved=await client.from("opportunity_candidates").insert({user_id:user.id,track:"internship",company,role_title:title,location:radarJobLocation(item)??item.location,source_url:item.localSource.publicUrl,source_summary:(marker+"\n"+item.evidence).slice(0,1000)});if(saved.error)throw saved.error;}
+      await saveLeadershipDecision(user.id,localId,"added");revalidatePath("/internships");return {ok:true,decision:"added" as const,message:exists?"该岗位已在候选池中，未重复添加。":"已将选中的本地岗位加入候选池。"};
+    });}catch(error){return {ok:false,message:safeError(error)};}
+  }
   const supabase = await createClient();
   const result = await supabase.rpc("manual_radar", { target_action: action, payload: { id: String(form.get("id")), company: String(form.get("company") ?? ""), title: String(form.get("title") ?? "") } });
   if (result.error) return { ok: false, message: safeError(result.error) };
   revalidatePath("/internships"); revalidatePath("/internships/discover");
-  return { ok: true, message: action === "add" ? "已加入候选池。" : "已忽略，未写入候选池。" };
+  return { ok: true, decision:action==="add"?"added":"ignored", message: action === "add" ? "已加入候选池。" : "已忽略，未写入候选池。" };
 }

@@ -6,6 +6,7 @@ vi.mock("openai", () => ({ default: class {
   constructor(options: unknown) { mocks.options(options); }
 } }));
 
+vi.mock("@/lib/resumes/visual",()=>({resumeVisual:async()=>({images:["data:image/png;base64,SYNTHETIC_PAGE"],layoutText:"实际PDF 1页"})}));
 import { analyzeResume, generateApplicationPack } from "./openai-analysis";
 
 beforeEach(() => {
@@ -16,8 +17,8 @@ beforeEach(() => {
     DEEPSEEK_USD_HKD_RATE: "8", DEEPSEEK_REQUEST_RESERVE_HKD_CENTS: "200"
   })) vi.stubEnv(name, value);
   mocks.create.mockResolvedValue({ status: "completed", output_text: JSON.stringify({
-    overallScore: 70, layoutScore: 0, contentScore: 70, clarityScore: 70, atsScore: 70,
-    summary: "Synthetic assessment.", strengths: [], risks: [], recommendations: [], layoutScope: "content_only"
+    overallScore: 70, layoutScore: 75, contentScore: 70, clarityScore: 70, atsScore: 70,
+    summary: "Synthetic assessment.", strengths: [], risks: [], recommendations: [], layoutScope: "visual_and_content"
   }), model: "deepseek-flash", usage: { input_tokens: 100, output_tokens: 50 } });
 });
 afterEach(() => { vi.unstubAllEnvs(); });
@@ -25,7 +26,7 @@ afterEach(() => { vi.unstubAllEnvs(); });
 const resume = { filename: "synthetic.pdf", mimeType: "application/pdf", bytes: Buffer.from("FILE_BYTES_NOT_FOR_DEEPSEEK"), extractedText: "Synthetic applicant: Python and Excel." };
 
 describe("DeepSeek adapter contract", () => {
-  it("sends extracted PDF text with content-only schema and no file bytes or user identifier", async () => {
+  it("sends rendered PDF pages for real layout scoring, without uploading a PDF object or user identifier", async () => {
     await analyzeResume("private-user-hash", resume);
     const request = mocks.create.mock.calls[0][0];
     expect(JSON.stringify(request.input)).toContain(resume.extractedText);
@@ -33,8 +34,9 @@ describe("DeepSeek adapter contract", () => {
     expect(request.safety_identifier).toBeUndefined();
     expect(request.store).toBe(false);
     expect(request.reasoning.effort).toBe("none");
-    expect(request.text.format.schema.properties.layoutScope.enum).toEqual(["content_only"]);
-    expect(request.text.format.schema.properties.layoutScore.maximum).toBe(0);
+    expect(request.text.format.schema.properties.layoutScope.enum).toEqual(["visual_and_content"]);
+    expect(JSON.stringify(request.input)).toContain("input_image");
+    expect(request.text.format.schema.properties.layoutScore.maximum).toBe(100);
     expect(mocks.options.mock.calls[0][0]).toMatchObject({ baseURL: "https://api.deepseek.com", apiKey: "synthetic-key", maxRetries: 0 });
   });
 

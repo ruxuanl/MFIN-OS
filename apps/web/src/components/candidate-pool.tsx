@@ -5,6 +5,7 @@ import { useActionState, useOptimistic, useState } from "react";
 import { batchDecideCandidates, promoteCandidate } from "@/app/(app)/workspace-actions";
 import { SubmitButton } from "@/components/operation-feedback";
 import { errorLabel, initialBatchState } from "@/lib/candidates/batch";
+import { candidatePresentation } from "@/lib/candidates/presentation";
 
 export type CandidateCard = {
   id: string;
@@ -12,6 +13,7 @@ export type CandidateCard = {
   role_title: string;
   location: string | null;
   source_summary: string | null;
+  source_url?: string | null;
   decision_status: string;
 };
 
@@ -76,7 +78,9 @@ export function CandidatePool({ track, candidates }: { track: "internship" | "gr
         <p className="workspace-empty">尚无候选。M3 不会用假岗位填充，也不会自动把岗位塞进长期表。</p>
       ) : (
         <div className="candidate-grid">
-          {candidates.map((candidate) => (
+          {candidates.map((candidate) => {
+            const display = candidatePresentation(candidate);
+            return (
             <article
               className={`candidate-card${pending.has(candidate.id) ? " is-pending" : ""}${failures.has(candidate.id) ? " has-error" : ""}`}
               key={candidate.id}
@@ -86,12 +90,12 @@ export function CandidatePool({ track, candidates }: { track: "internship" | "gr
                 <input type="checkbox" form={formId} name="candidateIds" value={candidate.id} checked={selected.has(candidate.id)} onChange={() => toggle(candidate.id)} />
                 <span>选择</span>
               </label>
-              <div>
-                <span>{candidate.location || "地点待确认"}{candidate.decision_status === "later" ? " · 稍后" : ""}{pending.has(candidate.id) ? " · 处理中…" : ""}</span>
-                <h3>{candidate.company}</h3>
-                <p>{candidate.role_title}</p>
+              <div className="candidate-info-block candidate-basics">
+                <div className="candidate-title-line"><h3>{display.company}</h3><p>{display.role}</p></div>
+                <div className="candidate-facts"><span>{display.date ? `来源发布 ${display.date}` : "发布日期待确认"}</span><span>{display.location}</span>{candidate.decision_status === "later" ? <span>稍后处理</span> : null}{pending.has(candidate.id) ? <span role="status">处理中…</span> : null}</div>
               </div>
-              {candidate.source_summary ? <small>{candidate.source_summary}</small> : null}
+              <div className="candidate-info-block candidate-apply"><span className="candidate-block-label">投递方式</span><div>{display.emails.map(email => <a key={email} href={`mailto:${email}`}>{email}</a>)}{display.urls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer">{display.emails.length ? "补充网页" : "打开招聘网页"}{display.urls.length > 1 ? ` ${index + 1}` : ""}<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 19 19 5M5 5h14v14"/></svg></a>)}{display.applicationNote ? <p>{display.applicationNote}</p> : null}</div></div>
+              <div className="candidate-info-block candidate-jd"><span className="candidate-block-label">JD · 招聘详情</span><p>{display.jd}</p></div>
               <div className="candidate-actions">
                 <form action={promoteCandidate}>
                   <input type="hidden" name="candidateId" value={candidate.id} />
@@ -108,7 +112,7 @@ export function CandidatePool({ track, candidates }: { track: "internship" | "gr
               </div>
               <p className="boundary-caption">“准备申请”只进入准备阶段；系统不会投递或提交。</p>
             </article>
-          ))}
+          );})}
         </div>
       )}
     </>

@@ -1,7 +1,9 @@
-import { getAiProvider, getAiProviderLabel, isResumeWorkspaceEnabled } from "@/lib/config";
+import "./materials-view.css";
+import {ResumeUpload,DeleteResumeButton,ResumeReauthenticate} from "@/components/resume-library-controls";
+import { getAiProviderLabel, isResumeWorkspaceEnabled } from "@/lib/config";
 import Link from "next/link";
 
-import { analyzeResumeVersion, uploadResume } from "@/app/(app)/materials/actions";
+import { analyzeResumeVersion, retryResumeDeletion } from "@/app/(app)/materials/actions";
 import { AutoAnalyzeResume } from "@/components/auto-analyze-resume";
 import { SubmitButton } from "@/components/operation-feedback";
 import { PageHeader } from "@/components/page-header";
@@ -32,6 +34,10 @@ const notices: Record<string, string> = {
   ai_failed: "AI 分析未完成；文件仍安全保存在简历库中。",
   ai_usage_unsettled: "本次 AI 调用的计费尚未确认，已保留预算，请勿连续重试。文件仍安全保存在简历库中。",
   ai_completed: "AI 分析已完成并归档。",
+  resume_deleted: "该版本及关联引用已删除。",
+  resume_delete_pending: "简历已停用，部分文件仍待清理，请重试清理。",
+  resume_delete_failed: "删除未完成，原简历仍保留。",
+  reauth_required: "永久删除需要重新登录验证身份；登录后再次点击删除。",
   ai_cached: "相同简历已有同版本分析，已直接复用。"
 };
 
@@ -61,7 +67,6 @@ export default async function MaterialsPage({
   const noticeCode = typeof params.notice === "string" ? params.notice : null;
   const notice = noticeCode ? notices[noticeCode] : null;
   const uploadedVersionId = typeof params.version === "string" ? params.version : null;
-  const master = data.documents.find((document) => document.document_kind === "master");
   const latestAnalysisByVersion = new Map<string, (typeof data.analyses)[number]>();
   for (const analysis of data.analyses) {
     if (!latestAnalysisByVersion.has(analysis.resume_version_id)) {
@@ -76,36 +81,15 @@ export default async function MaterialsPage({
     <PageHeader
       eyebrow="Artifact library"
       title="简历与申请材料"
-      description="Master 原件与每个岗位版本分开保存；AI 只提出建议，不覆盖文件，也不发送邮件。"
-      action={<span className="phase-badge">私有存储 · 版本不可变</span>}
+      description="每一版经历，清晰留存。上传、评估，再打磨下一版。"
+      action={<span className="phase-badge">私有简历库</span>}
     />
-    {notice ? <p className="workspace-notice" role="status">{notice}</p> : null}
+    {data.deletionPending ? <form action={retryResumeDeletion}><p className="workspace-notice">简历已停用，关联文件清理尚未完成。<SubmitButton>重试清理</SubmitButton></p></form> : null}
+    {noticeCode === "reauth_required" ? <ResumeReauthenticate/> : null}
+    {notice && !(data.deletionPending && noticeCode === "resume_delete_pending") ? <p className="workspace-notice" role="status">{notice}</p> : null}
     {shouldAutoAnalyze && uploadedVersionId ? <AutoAnalyzeResume resumeVersionId={uploadedVersionId} /> : null}
 
-    <section className="workspace-section resume-upload-card">
-      <div className="workspace-section-heading">
-        <div><p>Private intake</p><h2>上传一个新版本</h2></div>
-        <span className="muted-count">PDF / DOCX · 10 MB</span>
-      </div>
-      <p className="section-note">{getAiProvider() === "deepseek" ? "DeepSeek 使用 PDF / DOCX 提取的文字分析内容、结构和 ATS，不评估视觉排版。" : "PDF 会做内容与视觉排版分析；DOCX 首版做内容、结构和 ATS 分析。"}文件原件保存在私有 Supabase Storage；AI 仅接收当前选中的材料内容。</p>
-      <form action={uploadResume} className="workspace-form resume-upload-form">
-        <label><span>材料名称</span><input name="label" defaultValue={master?.label ?? "通用 Master 简历"} maxLength={160} required /></label>
-        <label><span>材料类型</span><select name="documentKind" defaultValue={master ? "tailored" : "master"}>
-          <option value="master">通用 Master</option><option value="tailored">岗位定制版</option>
-        </select></label>
-        <label><span>归入现有材料（可选）</span><select name="documentId" defaultValue="">
-          <option value="">创建新材料</option>
-          {data.documents.map((document) => <option key={document.id} value={document.id}>{document.label} · {document.document_kind === "master" ? "Master" : "定制"}</option>)}
-        </select></label>
-        <label><span>基于版本（可选）</span><select name="sourceVersionId" defaultValue="">
-          <option value="">无 / 独立上传</option>
-          {data.documents.flatMap((document) => document.versions.map((version) =>
-            <option key={version.id} value={version.id}>{document.label} · v{version.version_number}</option>))}
-        </select></label>
-        <label className="field-wide"><span>选择文件</span><input name="resumeFile" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required /></label>
-        <SubmitButton className="primary-button" pendingLabel="正在校验并私密保存…">保存为新版本</SubmitButton>
-      </form>
-    </section>
+    <section className="resume-upload-card"><ResumeUpload documents={data.documents}/></section>
 
     <div className="resume-budget-strip">
       <div><span>本月 AI 已用 / 已预留</span><strong>HK${(data.monthlyHkdCents / 100).toFixed(2)} / 100.00</strong></div>
@@ -125,19 +109,21 @@ export default async function MaterialsPage({
               <div><strong>v{version.version_number} · {version.original_filename}</strong><small>{new Date(version.created_at).toLocaleString("zh-CN")} · {(version.size_bytes / 1024).toFixed(0)} KB{version.page_count ? ` · ${version.page_count} 页` : " · DOCX 内容模式"}</small></div>
               <div className="resume-version-actions">
                 <a className="quiet-button" href={`/api/materials/resume/${version.id}`} target="_blank" rel="noreferrer">打开文件 ↗</a>
-                <form action={analyzeResumeVersion}><input type="hidden" name="resumeVersionId" value={version.id} /><SubmitButton pendingLabel="分析中…">{analysis ? "查看 / 复用分析" : "AI 分析"}</SubmitButton></form>
+                <DeleteResumeButton id={version.id} filename={version.original_filename}/>
+                <form action={analyzeResumeVersion}><input type="hidden" name="resumeVersionId" value={version.id} /><SubmitButton pendingLabel="分析中…">{analysis?.prompt_version === "resume_analysis_v2_visual" ? "复用分析" : analysis ? "更新分析（含排版）" : "AI 分析"}</SubmitButton></form>
               </div>
-              {result ? <div className="resume-analysis-card">
+              {result ? <details className="resume-analysis-card"><summary>查看 AI 评估 <span>总分 {score(result, "overallScore")} · {result.layoutScope === "content_only" ? "排版待评估" : `排版 ${score(result, "layoutScore")}`}</span></summary>
                 <div className="analysis-score-grid">
                   <div><span>总分</span><strong>{score(result, "overallScore")}</strong></div>
                   <div><span>排版</span><strong>{result.layoutScope === "content_only" ? "未评估" : score(result, "layoutScore")}</strong></div>
                   <div><span>内容</span><strong>{score(result, "contentScore")}</strong></div>
                   <div><span>ATS</span><strong>{score(result, "atsScore")}</strong></div>
                 </div>
+                <p className="layout-scope">{result.layoutScope === "visual_and_content" ? "排版已结合 PDF 前3页内的实际页面图评估。" : result.layoutScope === "structure_and_content" ? "DOCX 排版分基于格式结构，未核验最终渲染版面。" : "旧版仅分析文字；可更新分析以评估排版。"}</p>
                 <p>{typeof result.summary === "string" ? result.summary : ""}</p>
                 {strings(result, "strengths").length ? <div><strong>优势</strong><ul>{strings(result, "strengths").map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
                 {strings(result, "risks").length ? <div><strong>优先修改</strong><ul>{strings(result, "risks").map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
-              </div> : null}
+              </details> : null}
             </div>;
           })}</div>
         </article>)}</div> : <p className="empty-inline">还没有简历。先上传通用 Master；之后每次修改都保存成新版本。</p>}

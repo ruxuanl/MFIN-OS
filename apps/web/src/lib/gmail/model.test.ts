@@ -7,6 +7,12 @@ function encoded(value: string) {
 }
 
 describe("mail_rules_v1", () => {
+  it("does not turn a tracking receipt's quoted request into another action", () => {
+    const result = projectGmailMessage({ id: "synthetic-receipt", threadId: "synthetic-thread", historyId: "1", internalDate: "1786550400000",
+      payload: { headers: [{ name: "Subject", value: "Email opened" }, { name: "From", value: "notification@mailtrack.io" }, { name: "Authentication-Results", value: "mx.google.com; dmarc=pass header.from=mailtrack.io" }],
+        mimeType: "text/plain", body: { data: encoded("Your email Synthetic Analyst has been opened. Original: please confirm interview invitation 2026-11-20 10:00") } } });
+    expect(result).toMatchObject({ recruitmentStage: "read_confirmed", authenticatedRecruitment: true, needsAction: false, actionTitle: null, actionDueAt: null });
+  });
   beforeEach(() => {
     vi.stubEnv("GMAIL_JOB_FORWARD_IDENTIFIERS", "job-forward@example.com");
     vi.stubEnv("GMAIL_PERSONAL_FORWARD_IDENTIFIERS", "personal-forward@example.com");

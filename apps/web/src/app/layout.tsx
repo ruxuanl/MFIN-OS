@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 
 import "./globals.css";
+import "./workspace-design.css";
 
 export const metadata: Metadata = {
   title: { default: "MFin OS", template: "%s · MFin OS" },

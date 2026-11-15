@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { analyzeJdMatch, analyzeResume, jdMatchPromptVersion, resumePromptVersion } from "@/lib/ai/openai-analysis";
+import {callInterviewRuntime} from "@/lib/interview/runtime";
+import {hasFreshReauthentication} from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/session";
 import { getAiCacheScope, getOpenAiConfig, isOpenAiConfigured, isResumeWorkspaceEnabled } from "@/lib/config";
 import { extractResumeFile, ResumeFileValidationError } from "@/lib/resumes/file-intake";
@@ -283,4 +285,30 @@ export async function analyzeOpportunityJd(formData: FormData) {
   }
   revalidatePath(returnTo);
   redirect(`${returnTo}?notice=ai_completed`);
+}
+
+async function cleanDeletedResumes(userId:string){
+ const client=await createClient();const jobs=await client.rpc("resume_deletion_work",{action:"list"});if(jobs.error)throw jobs.error;
+ const pending=(Array.isArray(jobs.data)?jobs.data:[]) as {id:string;path:string;pending:boolean}[];
+ for(const job of pending.filter(j=>j.pending)){
+  const lock=await client.from("privacy_locks").select("is_locked").eq("user_id",userId).maybeSingle();if(lock.error||lock.data?.is_locked)throw new Error("privacy_lock");
+  if(!job.path.startsWith(userId+"/"+job.id+"/"))throw new Error("invalid_storage_path");
+  const purged=await callInterviewRuntime(userId,{mode:"host",jobs:[],resumes:[],deletedResumeIds:pending.map(j=>j.id)},"/api","POST",Buffer.from(JSON.stringify({op:"purge_resume",id:job.id})),"application/json");if(purged.status!==200)throw new Error("resume_local_cleanup_pending");
+  const removed=await createServiceClient().storage.from("resume-files").remove([job.path]);if(removed.error)throw removed.error;
+  const finished=await client.rpc("resume_deletion_work",{action:"finish",target:job.id});if(finished.error)throw finished.error;
+ }
+}
+export async function deleteResumeVersion(form:FormData){
+ const user=await requireUser();if(user.isMock||!isResumeWorkspaceEnabled())redirect("/materials?notice=preview");
+ const id=String(form.get("resumeVersionId")||"");if(form.get("confirmed")!=="delete"||!id)redirect("/materials?notice=resume_delete_failed");
+ if(!(await hasFreshReauthentication()))redirect("/materials?notice=reauth_required");
+ const client=await createClient();const deleted=await client.rpc("resume_deletion_work",{action:"delete",target:id});
+ if(deleted.error)redirect("/materials?notice="+(deleted.error.message.includes("reauth")?"reauth_required":"resume_delete_failed"));
+ let pending=false;try{await cleanDeletedResumes(user.id);}catch{pending=true;}
+ for(const path of ["/materials","/interview","/internships","/graduate"])revalidatePath(path);
+ redirect("/materials?notice="+(pending?"resume_delete_pending":"resume_deleted"));
+}
+export async function retryResumeDeletion(){
+ const user=await requireUser();if(user.isMock)redirect("/materials?notice=preview");
+ let pending=false;try{await cleanDeletedResumes(user.id);}catch{pending=true;}revalidatePath("/materials");redirect("/materials?notice="+(pending?"resume_delete_pending":"resume_deleted"));
 }

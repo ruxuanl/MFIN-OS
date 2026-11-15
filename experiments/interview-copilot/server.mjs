@@ -6,6 +6,8 @@ import {extractiveAnswer} from './answers.mjs';
 import {renderPdf} from './pdf.mjs';
 import {buildArchive} from './archive.mjs';
 import {questionPolicy,assessSession} from './assessment.mjs';
+import {planContext,validatePlan} from './question-plan.mjs';
+import {aiReview} from './ai-review.mjs';
 import http from 'node:http';
 import { mkdir, readFile, writeFile, rename, readdir, unlink } from 'node:fs/promises';
 import { createHash, randomUUID as uuid } from 'node:crypto';
@@ -29,6 +31,7 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
   await mkdir(dataDir,{recursive:true});
   const appCatalog=options.catalog||catalog;
   const storage=await openStorage(dataDir);let db=storage.state;db.qa_runs??=[];
+  db.sessions=db.sessions.filter(s=>!appCatalog.deletedResumeIds?.includes(s.resume?.id));
   const filesDir=new URL('files/',dataDir);await mkdir(filesDir,{recursive:true});db.cleanup_files??=[];
   const embedding=options.embedding===false?null:new LocalEmbedding(options.modelCache);
   for(const d of db.docs){d.status??=d.ready?'ready':'awaiting_confirmation';d.version??=1;d.document_id??=d.id;d.sections??=[{text:d.text}];d.hash??=createHash('sha256').update(d.text).digest('hex');if(!d.chunks?.length)d.chunks=d.ready?chunkDocument(d):[];}
@@ -46,12 +49,26 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
     for(const name of await readdir(archiveDir))if(/^interview-[a-f0-9-]+\.(?:md|pdf|sha256)(?:\.tmp)?$/.test(name)&&!keep.has(name))await unlink(new URL(name,archiveDir));
   }
   for(const session of db.sessions)if(session.state==='completed'){
-    if(!session.archive)session.archive=buildArchive(session);
-    session.archive.version=2;session.archive.format='pdf';session.archive.filename='interview-'+session.id+'.pdf';
+    session.archive=buildArchive(session);
+    session.archive.version=3;session.archive.format='pdf';session.archive.filename='interview-'+session.id+'.pdf';
   }
   let archiveTail=Promise.resolve();
   async function cleanupOriginals(){const done=new Set();for(const name of db.cleanup_files){if(!/^[a-f0-9-]+\.(pdf|docx|txt|md)$/.test(name))continue;try{await unlink(new URL(name,filesDir));done.add(name);}catch(e){if(e.code==='ENOENT')done.add(name);}}if(done.size){db.cleanup_files=db.cleanup_files.filter(name=>!done.has(name));storage.save(db);}}
   async function save(){storage.save(db);await cleanupOriginals();archiveTail=archiveTail.catch(()=>{}).then(syncArchives);await archiveTail;}
+  const review=s=>options.generate?aiReview(s):assessSession(s);
+  async function coachTurn(s,index){
+    const turn=s.turns[index];
+    if(turn.coaching?.evaluation)return turn.coaching;
+    if(!options.generate)throw Error('请从主应用打开 AI 面试。');
+    turn.coaching_status='processing';turn.coaching_error=null;await save();
+    try{
+      const result=await options.generate({purpose:'coaching',question:turn.question,answer:turn.answer,role:s.job?.role_title||'',...(s.interview_context?{context:s.interview_context}:{}),hits:(turn.hits||[]).map(({id,text,file,page,paragraph})=>({id,text,file,page,paragraph}))});
+      if(!result.evaluation||!Number.isInteger(result.evaluation.score))throw Error('AI 评分结果未完整返回。');
+      turn.coaching=result;turn.coaching_status='completed';
+    }catch(e){turn.coaching_status='failed';turn.coaching_error=e.message;}
+    s.review=review(s);if(s.archive)s.archive=buildArchive(s);await save();
+    return turn.coaching||{error:turn.coaching_error};
+  }
   await save();
   let indexRunning=false,closing=false;
   async function processIndexes(){
@@ -73,6 +90,7 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
   let queue=Promise.resolve();
   const server=http.createServer((req,res)=>{
     queue=queue.then(async()=>{try{
+      const retained=db.sessions.filter(s=>!appCatalog.deletedResumeIds?.includes(s.resume?.id));if(retained.length!==db.sessions.length){db.sessions=retained;await save();}
       if(!['127.0.0.1:3210','localhost:3210'].includes(req.headers.host))throw Error('非法 Host');
       res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'");
       const path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
@@ -100,29 +118,48 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
         await syncArchives();const pdf=await readFile(new URL(session.archive.filename,archiveDir));res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition','attachment; filename="'+session.archive.filename+'"');return res.end(pdf);
       }
       if(path!=='/api')throw Error('接口不存在');
-      if(req.method==='GET')return res.end(JSON.stringify(db.locked?{locked:true,projects:[],docs:[],sessions:[],catalog:appCatalog}:{...db,docs:db.docs.map(d=>({...d,chunks:d.chunks.map(({vector,...c})=>c)})),catalog:appCatalog,rag:{mode:embedding?.status==='ready'?'hybrid':'keyword',embedding_status:embedding?.status||'disabled',model:embedding?.model||null,generation:'disabled'},sessions:db.sessions.map(({snapshot,...s})=>s)}));
+      if(req.method==='GET')return res.end(JSON.stringify(db.locked?{locked:true,projects:[],docs:[],sessions:[],catalog:appCatalog}:{...db,docs:db.docs.map(d=>({...d,chunks:d.chunks.map(({vector,...c})=>c)})),catalog:appCatalog,rag:{mode:embedding?.status==='ready'?'hybrid':'keyword',embedding_status:embedding?.status||'disabled',model:embedding?.model||null,generation:options.generate?'host-gated':'disabled'},sessions:db.sessions.map(({snapshot,...s})=>({...s,...(options.generate?{review:aiReview(s)}:{})}))}));
       if(req.method!=='POST'||!['http://localhost:3210','http://127.0.0.1:3210'].includes(req.headers.origin)||req.headers['x-local-app']!=='1')throw Error('同源验证失败');
       let raw='';for await(const b of req){raw+=b;if(Buffer.byteLength(raw)>2100000)throw Error('输入过大');}
       const a=JSON.parse(raw);let out={};
       if(a.op==='lock'){db.locked=!!a.locked;db.lock_epoch=(db.lock_epoch||0)+1;if(!db.locked)scheduleIndex();}
       else {
         if(db.locked)throw Error('隐私锁已开启');
-        if(a.op==='start'){
+        if(a.op==='purge_resume'){db.sessions=db.sessions.filter(s=>s.resume?.id!==a.id);await save();out={deleted:true};}
+        else if(a.op==='start'){
           const job=appCatalog.jobs.find(j=>j.id===a.job);const resume=appCatalog.resumes.find(r=>r.id===a.resume);
           if(!job||!resume)throw Error('请先选择岗位和简历版本');
           const selected=db.projects.filter(p=>Array.isArray(a.projects)&&a.projects.includes(p.id));if(!selected.length)throw Error('请至少选择一个知识库');
-          out={id:uuid(),project:selected[0].id,projects:selected.map(p=>p.id),job:structuredClone(job),resume:structuredClone(resume),snapshot:structuredClone(currentDocuments(db.docs.filter(d=>selected.some(p=>p.id===d.project)))),turns:[],question:`针对${job.role_title}，请结合所选经历做一分钟自我介绍，并说明你的匹配点。`,state:'active',version:0,follow:false,created_at:new Date().toISOString()};out.timing=questionPolicy(out.question);out.document_version_ids=out.snapshot.map(d=>d.id);db.sessions.push(out);
+          const snapshot=structuredClone(currentDocuments(db.docs.filter(d=>selected.some(p=>p.id===d.project))));
+          let plan=null,context=null;
+          if(options.generate){
+            if(!options.generate)throw Error('请从主应用使用 AI 定制题目。');
+            context=planContext(job,a.resume_text,a.jd);
+            const found=await hybridRetrieve(snapshot,job.role_title+' '+context.jd.slice(0,1000),embedding);
+            const result=await options.generate({purpose:'question_plan',question:'根据所选岗位、简历片段和材料生成六道定制面试题。',role:job.role_title,context,hits:found.hits.map(({id,text,file,page,paragraph})=>({id,text,file,page,paragraph}))});
+            plan={questions:validatePlan(result),missing_information:result.missing_information||[],provider:result.provider,model:result.model};
+          }
+          out={id:uuid(),project:selected[0].id,projects:selected.map(p=>p.id),job:structuredClone(job),resume:structuredClone(resume),snapshot,turns:[],question:plan?.questions[0]||`针对${job.role_title}，请结合所选经历做一分钟自我介绍，并说明你的匹配点。`,state:'active',version:0,follow:false,created_at:new Date().toISOString()};
+          if(plan){out.question_plan=plan;out.interview_context=context;}
+          out.timing=questionPolicy(out.question);out.document_version_ids=out.snapshot.map(d=>d.id);db.sessions.push(out);
+        }else if(a.op==='coach'){
+          const s=db.sessions.find(s=>s.id===a.id);const index=a.turn;
+          if(!s||!Number.isInteger(index)||index<0||index>=s.turns.length)throw Error('题目记录不存在');
+          const turn=s.turns[index];
+          out=await coachTurn(s,index);
         }else if(['answer','finish'].includes(a.op)){
           const s=db.sessions.find(s=>s.id===a.id);if(!s)throw Error('面试不存在');
           if(s.state!=='active'||s.version!==a.version)throw Error('版本冲突，请刷新');
-          if(a.op==='finish'){s.state='completed';s.completed_at=new Date().toISOString();s.review=assessSession(s);s.archive=buildArchive(s);delete s.snapshot;s.version++;}
+          if(a.op==='finish'){s.state='completed';s.completed_at=new Date().toISOString();s.review=review(s);s.archive=buildArchive(s);delete s.snapshot;s.version++;}
           else {
             const answer=String(a.answer||'').slice(0,10000);
             const duration=a.duration_seconds==null?null:a.duration_seconds;if(duration!==null&&(!Number.isFinite(duration)||duration<0||duration>7200))throw Error('作答时长无效');
-            s.turns.push({question:s.question,timing:s.timing||questionPolicy(s.question),answer,raw_transcript:String(a.raw_transcript||'').slice(0,10000),input_mode:a.input_mode==='voice'?'voice':'text',duration_seconds:duration,hits:retrieve(s.snapshot||[],answer),note:!answer?'本题已跳过，建议重练。':answer.length<80?'补充具体步骤、本人贡献及材料证据。':'继续核对数字来源，说明贡献边界和方法局限。'});s.version++;
-            if(s.turns.length>=6){s.state='completed';s.completed_at=new Date().toISOString();s.review=assessSession(s);s.archive=buildArchive(s);delete s.snapshot;}
+            s.turns.push({question:s.question,timing:s.timing||questionPolicy(s.question),answer,raw_transcript:String(a.raw_transcript||'').slice(0,10000),input_mode:a.input_mode==='voice'?'voice':'text',duration_seconds:duration,hits:(await hybridRetrieve(s.snapshot||[],s.question+' '+answer,embedding)).hits,note:!answer?'本题已跳过，建议重练。':answer.length<80?'补充具体步骤、本人贡献及材料证据。':'继续核对数字来源，说明贡献边界和方法局限。'});s.version++;
+            // Persist the submitted answer before any provider request; a failed call must not lose it.
+            await save();if(options.generate)await coachTurn(s,s.turns.length-1);
+            if(s.turns.length>=6){s.state='completed';s.completed_at=new Date().toISOString();s.review=review(s);s.archive=buildArchive(s);delete s.snapshot;}
             else {const follow=!!answer&&answer.length<80&&!s.follow;const base=[`请从所选知识库挑选一段经历，说明它与${s.job?.role_title||'目标岗位'}的关系。`,'请详细解释你采用的方法、关键假设和数据来源。','请区分本人贡献与团队成果，并说明可核对的依据。','有哪些结果与局限？请避免使用没有来源的指标。','如果重新做这个项目，你会改进什么？'];s.question=follow?'你提到的工作中，哪一步由你亲自完成？请补充操作过程和证据。':base[Math.min(s.turns.length-1,4)];s.follow=follow;s.timing=questionPolicy(s.question);}
-          }out={id:s.id,state:s.state};
+          }if(s.state==='active'&&s.question_plan){s.question=s.question_plan.questions[s.turns.length];s.timing=questionPolicy(s.question);s.follow=false;}out={id:s.id,state:s.state};
         }else {
           const p=db.projects.find(p=>p.id===a.project);if(!p)throw Error('知识库不存在');
           if(a.op==='import'){
@@ -137,7 +174,12 @@ export async function createApp(dataDir = new URL('./runtime-data/', import.meta
           }else if(a.op==='qa'){
             const question=String(a.question||'').trim();if(!question||question.length>2000)throw Error('问题须为 1–2000 字');
             const found=await hybridRetrieve(db.docs.filter(d=>d.project===p.id),question,embedding);const structured=extractiveAnswer(found.hits);
-            out={...structured,...found,provider:'local-extractive',id:uuid()};db.qa_runs.push({id:out.id,project:p.id,question,result:out,created_at:new Date().toISOString()});db.qa_runs=db.qa_runs.slice(-200);
+            let generated=null;
+            if(options.generate&&found.hits.length){
+              if(!options.generate)throw Error('请从主应用打开知识库 AI，并在状态中心开启“面试知识库 AI”。');
+              generated=await options.generate({question,hits:found.hits.map(({id,text,file,page,paragraph})=>({id,text,file,page,paragraph}))});
+            }
+            out={...(generated||structured),...found,provider:generated?'deepseek':'local-extractive',id:uuid()};db.qa_runs.push({id:out.id,project:p.id,question,result:out,created_at:new Date().toISOString()});db.qa_runs=db.qa_runs.slice(-200);
           }
           else throw Error('未知操作');
         }

@@ -6,6 +6,25 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { isReportType } from "@/lib/reports/model";
 import { createClient } from "@/lib/supabase/server";
+import { generateBrief, saveSchedule } from "@/lib/reports/archive";
+
+export async function generateArchiveAction(formData: FormData) {
+  const user=await requireUser();
+  const type=formData.get("type");
+  if(user.isMock || (type!=="daily" && type!=="weekly"))redirect("/review?notice=generate_failed");
+  let id:string;
+  try {id=(await generateBrief(user.id,type)).id;}
+  catch {redirect(`/review?type=${type}&notice=generate_failed`);}
+  revalidatePath("/review");
+  redirect(`/review?type=${type}&id=${id}&notice=generated`);
+}
+export async function saveArchiveSchedule(formData: FormData) {
+  const user=await requireUser(); const type=formData.get("type");
+  if(user.isMock || (type!=="daily" && type!=="weekly"))redirect("/review?notice=schedule_failed");
+  try {await saveSchedule(user.id,{type,enabled:formData.get("enabled")==="on",time:String(formData.get("time")??"")});}
+  catch {redirect("/review?notice=schedule_failed");}
+  revalidatePath("/review");redirect("/review?notice=schedule_saved");
+}
 
 export async function markReportNotificationsRead() {
   const user = await requireUser();
@@ -28,14 +47,13 @@ export async function markReportNotificationsRead() {
 export async function generateReportAction(formData: FormData) {
   const user = await requireUser();
   const reportType = String(formData.get("reportType") ?? "");
-  const returnTo = String(formData.get("returnTo") ?? "/");
+  const returnTo = formData.get("returnTo") === "/review" ? "/review" : "/";
   if (user.isMock || !isReportType(reportType)) redirect(`${returnTo}?notice=invalid`);
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("generate_my_report", { target_report_type: reportType });
-  if (error) redirect(`${returnTo}?notice=${error.message.includes("permission") || error.message.includes("grant") ? "permission_required" : "generate_failed"}`);
+  try { await generateBrief(user.id,reportType === "weekly" ? "weekly" : "daily"); }
+  catch { redirect("/review?notice=generate_failed"); }
   revalidatePath("/");
   revalidatePath("/review");
-  redirect(`${returnTo}?notice=generated`);
+  redirect(`/review?type=${reportType === "weekly" ? "weekly" : "daily"}&notice=generated`);
 }
 
 export async function updateReportSchedule(formData: FormData) {

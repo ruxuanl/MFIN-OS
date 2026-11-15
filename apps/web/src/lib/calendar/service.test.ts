@@ -40,7 +40,7 @@ vi.mock("@/lib/supabase/service", () => ({
   })
 }));
 
-import { initializeCalendarConnection, runCalendarSync } from "./service";
+import { initializeCalendarConnection, readCalendarView, runCalendarSync } from "./service";
 import { CALENDAR_SCOPES } from "./constants";
 
 const oauth = { clientId: "test-client", clientSecret: "test-secret", redirectUri: "https://product.example/api/calendar/oauth/callback" };
@@ -63,6 +63,15 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Calendar connection and sync failures", () => {
+  it.each(["privacy", "pause", "read permission"])("prevents display reads with %s blocking access", async (block) => {
+    state.locked = block === "privacy";
+    state.paused = block === "pause";
+    state.readAllowed = block !== "read permission";
+    await expect(readCalendarView("user-1", oauth, "2026-11-01T00:00:00Z", "2026-12-01T00:00:00Z")).rejects.toThrow();
+    expect(state.fetcher).not.toHaveBeenCalled();
+    expect(state.rpc).not.toHaveBeenCalled();
+    expect(state.writes).toEqual([]);
+  });
   it("clears the premature success timestamp and records an actionable failure when initialization fails", async () => {
     state.fetcher.mockResolvedValue(Response.json({ error: { errors: [{ reason: "accessNotConfigured" }] } }, { status: 403 }));
     await expect(initializeCalendarConnection("user-1", credentials, "https://product.example"))

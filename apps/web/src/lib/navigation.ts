@@ -6,6 +6,7 @@ export const primaryNavigation = [
 ] as const;
 
 export const secondaryNavigation = [
+  { href: "/dashboard", label: "Dashboard", description: "桌面端申请与邮件数据可视化。", icon: "chart" },
   { href: "/interview", label: "模拟面试", description: "项目知识库、语音作答和 PDF 面试复盘记录。", icon: "sparkle" },
   { href: "/calendar", label: "日历同步", description: "查看 Google Calendar 连接、同步进度和冲突。", icon: "calendar" },
   { href: "/review", label: "复盘", description: "查看晨间简报、晚间收尾与每周复盘。", icon: "chart" },
@@ -17,6 +18,21 @@ export const secondaryNavigation = [
 ] as const;
 
 export const mobileMoreHrefs = secondaryNavigation.map((item) => item.href);
+
+const coreWorkspaceHrefs = new Set<string>(["/dashboard", "/interview"]);
+
+export const sidebarNavigationGroups = [
+  {
+    label: "核心工作区",
+    className: "primary-nav",
+    items: [...primaryNavigation, ...secondaryNavigation.filter((item) => coreWorkspaceHrefs.has(item.href))]
+  },
+  {
+    label: "辅助工具",
+    className: "secondary-nav",
+    items: secondaryNavigation.filter((item) => !coreWorkspaceHrefs.has(item.href))
+  }
+] as const;
 
 export function isNavigationActive(pathname: string, href: string, additionalHrefs: readonly string[] = []) {
   return [href, ...additionalHrefs].some((candidate) =>

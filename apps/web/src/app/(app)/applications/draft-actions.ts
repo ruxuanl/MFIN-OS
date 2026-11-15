@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { applicationPackPromptVersion, buildPackPayload, fingerprintSource, packReserveHkdCents, parseQuestions } from "@/lib/ai/application-pack";
-import { generateApplicationPack } from "@/lib/ai/openai-analysis";
+import { generateApplicationPack, generateCoverLetter } from "@/lib/ai/openai-analysis";
+import {coverLetterPayload,coverLetterPromptVersion,validateCoverLetter} from "@/lib/ai/cover-letter";
 import { requireUser } from "@/lib/auth/session";
 import { getAiCacheScope, getOpenAiConfig, isOpenAiConfigured } from "@/lib/config";
 import { loadResumeText } from "@/lib/resumes/text";
@@ -22,6 +23,9 @@ function detailPath(formData: FormData) {
 
 function packNotice(error: unknown) {
   const message = error instanceof Error ? error.message.toLocaleLowerCase("en-US") : "";
+  if(message.includes("draft_locked"))return "draft_locked";
+  if(message.includes("draft_version_conflict"))return "draft_conflict";
+  if(message.includes("cover_letter_base_required"))return "draft_base_required";
   if (message.includes("draft_resume_unconfirmed")) return "draft_resume_unconfirmed";
   if (message.includes("ai_usage_unsettled")) return "ai_usage_unsettled";
   if (message.includes("budget")) return "ai_budget_exceeded";
@@ -111,10 +115,10 @@ export async function saveApplicationDraft(formData: FormData) {
   const returnTo = detailPath(formData);
   const opportunityId = String(formData.get("opportunityId") ?? "");
   const fieldKey = String(formData.get("fieldKey") ?? "");
-  const body = String(formData.get("body") ?? "");
+  const body = String(formData.get("body") ?? "").replace(/\r\n?/g,"\n");
   const question = String(formData.get("question") ?? "").trim();
   const baseVersion = String(formData.get("baseVersion") ?? "");
-  if (user.isMock || !opportunityId || !/^(cover_letter|tailoring_points|gap_explanation|qa_[1-5])$/.test(fieldKey) || body.length > 8000) {
+  if (user.isMock || !opportunityId || !/^(cover_letter_base|cover_letter|tailoring_points|gap_explanation|qa_[1-5])$/.test(fieldKey) || body.length > 8000) {
     redirect(`${returnTo}?notice=invalid`);
   }
   const supabase = await createClient();
@@ -131,6 +135,48 @@ export async function saveApplicationDraft(formData: FormData) {
   }
   revalidatePath(returnTo);
   redirect(`${returnTo}?notice=draft_saved`);
+}
+
+export async function generateCoverLetterAction(formData:FormData){
+ const user=await requireUser(),returnTo=detailPath(formData);
+ const opportunityId=String(formData.get("opportunityId")??""),versionId=String(formData.get("resumeVersionId")??""),base=String(formData.get("defaultLetter")??"").replace(/\r\n?/g,"\n");
+ if(user.isMock || !/^\/internships\/[0-9a-f-]{36}$/i.test(returnTo) || !opportunityId || !versionId || !base.trim() || base.length>8000)redirect(`${returnTo}?notice=draft_base_required`);
+ const client=await createClient();let usageId:string|null=null,outcome="drafts_generated",called=false;
+ const check=async()=>{const r=await client.rpc("get_my_permission_decision",{capability_key:"ai.material_draft"});if(r.error || !r.data?.[0]?.allowed)throw new Error("ai_permission_denied");};
+ try {
+  await check();const config=getOpenAiConfig();if(config.provider!=="deepseek")throw new Error("ai_permission_deepseek_required");
+  const [job,resume,letter]=await Promise.all([
+   client.from("opportunities").select("company,role_title,raw_jd,responsibilities,requirements").eq("id",opportunityId).eq("user_id",user.id).eq("track","internship").maybeSingle(),
+   client.from("resume_versions").select("id").eq("id",versionId).eq("user_id",user.id).maybeSingle(),
+   client.from("application_drafts").select("locked").eq("opportunity_id",opportunityId).eq("field_key","cover_letter").maybeSingle()
+  ]);
+  if(job.error || !job.data || resume.error || !resume.data || letter.error)throw new Error("resume_or_job_unavailable");
+  if(letter.data?.locked)throw new Error("draft_locked");
+  const save=await client.rpc("save_my_application_draft",{target_opportunity_id:opportunityId,target_field_key:"cover_letter_base",target_body:base,target_base_version:formData.get("baseVersion")?Number(formData.get("baseVersion")):undefined});
+  if(save.error)throw new Error(save.error.message);
+  const payload=coverLetterPayload({company:job.data.company,roleTitle:job.data.role_title,jdText:job.data.raw_jd || [job.data.responsibilities,job.data.requirements].filter(Boolean).join("\n\n"),resumeVersionId:versionId,resumeText:await loadResumeText(versionId),questions:[]},base);
+  const fingerprint=createHash("sha256").update(JSON.stringify({scope:getAiCacheScope(),payload})).digest("hex");
+  const cached=await client.from("ai_analyses").select("id,result").eq("analysis_kind","application_pack").eq("input_fingerprint",fingerprint).eq("prompt_version",coverLetterPromptVersion).maybeSingle();if(cached.error)throw new Error("cache_unavailable");
+  let result:unknown=cached.data?.result;
+  let analysisId=cached.data?.id;
+  if(!analysisId){
+   const reserve=Math.max(config.reserveHkdCents,Math.ceil(((JSON.stringify(payload).length*4+5000)*config.inputUsdPerMillion+3000*config.outputUsdPerMillion)/1e6*config.usdHkdRate*100));
+   const r=await client.rpc("reserve_my_ai_usage_for_provider",{target_analysis_kind:"application_pack",target_input_fingerprint:fingerprint,target_reserve_hkd_cents:reserve,target_provider:"deepseek"});if(r.error || !r.data)throw new Error(r.error?.message??"reservation_failed");usageId=r.data;
+   await check();called=true;
+   const output=await generateCoverLetter(createHash("sha256").update(user.id).digest("hex"),payload);
+   result=output.result;
+   if(output.actualHkdCents>reserve)throw new Error("ai_usage_unsettled");
+   const complete=await client.rpc("complete_my_ai_analysis",{target_usage_event_id:usageId,target_opportunity_id:opportunityId,target_resume_version_id:versionId,target_model:output.model,target_prompt_version:coverLetterPromptVersion,target_result:output.result as Json,target_input_tokens:output.inputTokens,target_output_tokens:output.outputTokens,target_actual_hkd_cents:output.actualHkdCents});
+   if(complete.error || !complete.data)throw new Error("ai_usage_unsettled");usageId=null;analysisId=complete.data;
+  }else outcome="drafts_cached";
+  validateCoverLetter(result,payload);
+  await check();const applied=await client.rpc("apply_my_application_pack",{target_analysis_id:analysisId});if(applied.error)throw new Error(applied.error.message);if(!applied.data)throw new Error("draft_locked");
+ }catch(error){
+  // A possibly billed request keeps its reservation until usage is known.
+  if(usageId && (!called || error instanceof Error && error.message==="ai_provider_rejected"))await client.rpc("fail_my_ai_usage",{target_usage_event_id:usageId,target_error_code:"cover_letter_failed"});
+  outcome=called && usageId?"ai_usage_unsettled":packNotice(error);
+ }
+ revalidatePath(returnTo);redirect(`${returnTo}?notice=${outcome}`);
 }
 
 export async function unlockApplicationDraft(formData: FormData) {

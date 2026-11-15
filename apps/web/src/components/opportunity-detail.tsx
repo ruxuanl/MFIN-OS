@@ -2,6 +2,9 @@ import { isOpenAiConfigured, isResumeWorkspaceEnabled } from "@/lib/config";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CoverLettersPanel } from "@/components/cover-letters-panel";
+import {getCoverLetterTemplate,getCoverLetterResumeId} from "@/lib/applications/cover-letter-template";
+import {getAiProvider} from "@/lib/config";
 import { ApplicationDraftsPanel } from "@/components/application-drafts-panel";
 import { ApplicationPackagePanel } from "@/components/application-package-panel";
 import { ApplicationSubmissionPanel } from "@/components/application-submission-panel";
@@ -43,6 +46,7 @@ export async function OpportunityDetail({
     getApplicationDrafts(user, id)
   ]);
   if (!data) notFound();
+  const [template,letterResumeId]=track==="internship" && !user.isMock?await Promise.all([getCoverLetterTemplate(user.id),getCoverLetterResumeId(drafts.find(d=>d.field_key==="cover_letter")?.ai_analysis_id??undefined)]):["",null];
   const item = data.opportunity;
   const basePath = track === "internship" ? "/internships" : "/graduate";
   const returnTo = `${basePath}/${id}`;
@@ -93,7 +97,7 @@ export async function OpportunityDetail({
       <WorkspaceNotice notice={notice} />
 
       <ConflictPanel conflicts={data.conflicts} returnTo={returnTo} />
-      <WorkspaceTabs initialTab={notice && /^(ai_|jd_|resume_|package_|draft_|snapshot_)/.test(notice) ? "materials" : "overview"} tabs={[
+      <WorkspaceTabs initialTab={track==="internship" && notice?.startsWith("link_")?"tracking":notice && /^(ai_|jd_|resume_|package_|draft_|snapshot_)/.test(notice) ? "materials" : "overview"} tabs={[
         { id: "overview", label: "概览", content: <div className="detail-tab-content">
         {data.actions.length ? <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} /> : null}
         <section className="detail-panel detail-main">
@@ -124,13 +128,14 @@ export async function OpportunityDetail({
         </section> : null}
         {data.actions.length === 0 ? <ActionPanel actions={data.actions} dependencies={data.dependencies} contextType="opportunity" contextId={item.id} track={track} returnTo={returnTo} /> : null}
         <OpportunitySkillsPanel view={skillsView} opportunityId={item.id} returnTo={returnTo} />
+        {track==="internship"?<CustomFieldsPanel definitions={data.customFields} values={data.customValues} scope={track} entityType="opportunity" entityId={item.id} returnTo={returnTo}/>:null}
         </div> },
         { id: "materials", label: "材料与申请", content: <div className="detail-tab-content">
         {resumeContext ? <OpportunityAiPanel opportunityId={id} notice={notice} data={resumeContext} /> : null}
-        <ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} />
-        <ApplicationDraftsPanel drafts={drafts} opportunityId={item.id} returnTo={returnTo} aiConfigured={isOpenAiConfigured()} resumeConfirmed={Boolean(packageView?.package?.selected_resume_version_id)} />
+        {track==="internship"?<CoverLettersPanel key={`${id}:${drafts.map(d=>`${d.id}-${d.version}-${d.locked}`).join(",")}`} drafts={drafts} template={template} opportunityId={item.id} returnTo={returnTo} resumes={packageView?.resumeOptions??[]} selectedResumeId={letterResumeId??packageView?.package?.selected_resume_version_id??packageView?.assignedResumeVersionId??null} aiConfigured={isOpenAiConfigured() && getAiProvider()==="deepseek"}/>:<><ApplicationPackagePanel view={packageView} opportunityId={item.id} returnTo={returnTo} deadline={item.deadline} /><ApplicationDraftsPanel drafts={drafts} opportunityId={item.id} returnTo={returnTo} aiConfigured={isOpenAiConfigured()} resumeConfirmed={Boolean(packageView?.package?.selected_resume_version_id)} /></>}
         <ApplicationSubmissionPanel snapshots={snapshots} opportunityId={item.id} mainStage={item.main_stage} returnTo={returnTo} />
         </div> },
+        ...(track==="internship"?[{id:"tracking",label:"追踪",content:<div className="detail-tab-content"><TimelinePanel timeline={data.timeline}/><OpportunityCommunicationsPanel links={communications} returnTo={returnTo} title="往来邮件"/></div>}]:[
         { id: "communications", label: "沟通", content: <div className="detail-tab-content">
         <OpportunityCommunicationsPanel links={communications} returnTo={returnTo} />
 
@@ -138,7 +143,7 @@ export async function OpportunityDetail({
         { id: "history", label: "历史", content: <div className="detail-tab-content">
         <CustomFieldsPanel definitions={data.customFields} values={data.customValues} scope={track} entityType="opportunity" entityId={item.id} returnTo={returnTo} />
         <TimelinePanel timeline={data.timeline} />
-      </div> }
+      </div> }])
       ]} />
     </div></UnsavedChangesGuard>
   );

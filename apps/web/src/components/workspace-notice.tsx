@@ -45,6 +45,8 @@ const messages: Record<string, string> = {
   skill_failed: "技能更新失败，请刷新后重试。",
   resume_skills_extracted: "已从简历文件提取技能，文本保存在私有表中。",
   resume_skills_failed: "简历技能提取失败；原简历文件没有被修改。",
+  draft_locked: "你保存的 AI 版已保留；请先允许更新 AI 版再重新生成。",
+  draft_base_required: "请填写默认求职信并选择简历版本后生成。",
   drafts_generated: "AI 草稿已生成；未锁定的段落已更新，你编辑过的段落保持不变。系统没有提交或发送任何内容。",
   drafts_cached: "相同的 JD、简历与问题已有结果，已直接复用，未重复计费。",
   draft_saved: "草稿已保存并锁定，重新生成不会覆盖。",

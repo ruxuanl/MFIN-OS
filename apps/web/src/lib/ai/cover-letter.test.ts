@@ -1,0 +1,9 @@
+import {describe,it,expect} from "vitest";
+import {coverLetterPayload,coverLetterInstructions,validateCoverLetter} from "./cover-letter";
+const input={company:"Synthetic Capital",roleTitle:"Research Intern",jdText:"Research duties",resumeVersionId:"synthetic",resumeText:"Synthetic resume: Excel research",questions:[]};
+describe("cover letter input and evidence",()=>{
+ it("keeps the edited default separate from JD and resume",()=>{const p=coverLetterPayload(input,"Edited synthetic baseline");expect(p.defaultLetter).toBe("Edited synthetic baseline");expect(p.resume.versionId).toBe("synthetic");expect(coverLetterInstructions(p)).toContain("Edited synthetic baseline");expect(()=>coverLetterPayload(input," ")).toThrow();});
+ it("requires evidence from the declared input source",()=>{const p=coverLetterPayload(input,"Synthetic baseline");const result={coverLetter:{text:"完整合成求职信",confidence:"high",evidence:[{claim:"研究",source:"jd",quote:"Research duties"}],missingInfo:[]}};expect(validateCoverLetter(result,p).text).toBe("完整合成求职信");result.coverLetter.evidence[0].source="resume";expect(()=>validateCoverLetter(result,p)).toThrow("evidence");});
+ it("rejects blank, oversized and ungrounded output",()=>{const p=coverLetterPayload(input,"Synthetic baseline");expect(()=>validateCoverLetter({coverLetter:{text:"",confidence:"high",evidence:[],missingInfo:[]}},p)).toThrow();expect(()=>validateCoverLetter({coverLetter:{text:"x".repeat(8001),confidence:"high",evidence:[],missingInfo:[]}},p)).toThrow();});
+ it("accepts job title evidence from the explicit role field",()=>{const p=coverLetterPayload(input,"Synthetic baseline");expect(validateCoverLetter({coverLetter:{text:"Synthetic",confidence:"high",evidence:[{claim:"Role",source:"jd",quote:"Research Intern"}],missingInfo:[]}},p).text).toBe("Synthetic");});
+});

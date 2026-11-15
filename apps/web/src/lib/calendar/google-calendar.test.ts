@@ -5,6 +5,22 @@ vi.mock("server-only", () => ({}));
 import { CalendarProviderError, GoogleCalendarClient } from "./google-calendar";
 
 describe("Google Calendar adapter", () => {
+  it("expands recurring instances in a bounded read-only display query", async () => {
+    const urls: URL[] = [];
+    const guard = vi.fn(async () => undefined);
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      urls.push(new URL(String(input)));
+      return Response.json({ items: [], nextPageToken: "next" });
+    }) as typeof fetch;
+    const client = new GoogleCalendarClient("synthetic-token", fetcher, guard);
+    await client.listEventsInRange("calendar/id", "2026-11-01T00:00:00+08:00", "2026-12-01T00:00:00+08:00", "page-2");
+    expect(guard).toHaveBeenCalledWith("calendar.read");
+    expect(urls[0].searchParams.get("singleEvents")).toBe("true");
+    expect(urls[0].searchParams.get("showDeleted")).toBe("false");
+    expect(urls[0].searchParams.get("timeMin")).toBe("2026-11-01T00:00:00+08:00");
+    expect(urls[0].searchParams.get("pageToken")).toBe("page-2");
+    expect(urls[0].searchParams.has("syncToken")).toBe(false);
+  });
   it("sends eventLabelVersion=1 on every request and preserves incremental sync parameters", async () => {
     const urls: URL[] = [];
     const fetcher = vi.fn(async (input: string | URL | Request) => {
